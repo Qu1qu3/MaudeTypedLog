@@ -1,5 +1,9 @@
 # MAUDETYPEDLOG
 
+
+MaudeTypedLog is a typed logic programming interpreter tool for Prolog. The tool is written in Maude and thus requires the [Maude System to run](https://maude-lang.github.io/)
+
+
 ## Files
 The repository contains 6 files:
 * unification.maude: contains the definition for the unification algorithm
@@ -81,7 +85,21 @@ q(X0) :- p(a).
 ```
 
 ### query
-...
+This command makes a query to a loaded program. It returns "True" if the query unifies, "No solution" in case it does not unify and "Type error in this query" if every unification process reaches to a type error.
+```
+MaudeTypedLog> load program 1
+Loaded program 1
+MaudeTypedLog> query (r(1))
+Executing query:
+---------------------
+True.
+```
+
+In order to make a query the syntax is very similar to Prolog, but has a few differences.
+* Variables must be written as X(<N>), being N the id of the variable
+* Queries must be introduced inside parenthesis, as shown in the example.
+* Introducing the term "s(0)" may result in execution errors due to parsing.
+
 
 ### show program
 This command prints the loaded program.
@@ -92,11 +110,11 @@ MaudeTypedLog> show program
 Show program function:
 ---------------------
 Program clauses:
-p(s(0)) :- .
+p(1) :- .
 p(0) :- .
-q(s(0)) :- .
+q(1) :- .
 q(a) :- .
-r(s(X0)) :- p(s(X0)), q(s(X0)).
+r(X0) :- p(X0), q(X0).
 ```
 
 ### show predicates
@@ -106,9 +124,21 @@ MaudeTypedLog> show predicates
 Show predicates function:
 ---------------------
 Program predicates:
-p(s(0))
+p(1)
 p(0)
-q(s(0))
+q(1)
 q(a)
-r(s(X0))
+r(X0)
+```
+
+
+### quit
+
+In order to leave the tool the user should execute the "quit" command.
+```
+MaudeTypedLog> quit
+Goodbye
+rewrites: 66714 in 150ms cpu (722088ms real) (444760 rewrites/second)
+result Portal: <>
+Bye.
 ```
