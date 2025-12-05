@@ -1,0 +1,456 @@
+load detectError.maude
+
+mod MTL-STRAT is
+    including DETECT-ERROR .
+
+    subsort String < LPString .
+
+    op fake : -> LPProgram . ---auxiliary program
+
+    var T : Term .
+    var N : Nat .
+    var NP : NatP .
+
+    op takeProgram : Nat -> LPProgram .
+    eq takeProgram(1) = ex1 .
+    eq takeProgram(2) = ex2 .
+    eq takeProgram(3) = ex3 .
+    eq takeProgram(4) = ex4 .
+    eq takeProgram(5) = ex5 .
+    eq takeProgram(6) = exAppend .
+    eq takeProgram(7) = exMember .
+    eq takeProgram(8) = exList .
+    eq takeProgram(9) = exMax .
+    eq takeProgram(N) = mt [owise] .
+
+    ops RED GREEN BLUE YELLOW CYAN WHITE BW : -> String .
+    eq RED = "\033[1;31m" .
+    eq GREEN = "\033[1;32m" .
+    eq BLUE = "\033[1;34m" .
+    eq YELLOW = "\033[1;33m" .
+    eq CYAN = "\033[1;36m" .
+    eq WHITE = "\033[1;37m" .
+    eq BW = "\033[0m" .
+
+    op toLPChar : String -> LPString .
+    eq toLPChar("a") = a . eq toLPChar("b") = b .
+    eq toLPChar("c") = c . eq toLPChar("d") = d .
+    eq toLPChar("e") = e . eq toLPChar("f") = f .
+    eq toLPChar("g") = g . eq toLPChar("h") = h .
+    eq toLPChar("i") = i . eq toLPChar("j") = j .
+    eq toLPChar("k") = k . eq toLPChar("l") = l .
+    eq toLPChar("m") = m . eq toLPChar("n") = n .
+    eq toLPChar("o") = o . eq toLPChar("p") = p .
+    eq toLPChar("s") = s . eq toLPChar("t") = t .
+    eq toLPChar("u") = u . eq toLPChar("v") = v .
+    eq toLPChar("w") = w . eq toLPChar("x") = x .
+    eq toLPChar("y") = y . eq toLPChar("z") = z .
+    eq toLPChar("q") = q . eq toLPChar("r") = r .
+
+    op toString : LPString -> Char .
+    eq toString(a) = "a" . eq toString(b) = "b" .
+    eq toString(c) = "c" . eq toString(d) = "d" .
+    eq toString(e) = "e" . eq toString(f) = "f" .
+    eq toString(g) = "g" . eq toString(h) = "h" .
+    eq toString(i) = "i" . eq toString(j) = "j" .
+    eq toString(k) = "k" . eq toString(l) = "l" .
+    eq toString(m) = "m" . eq toString(n) = "n" .
+    eq toString(o) = "o" . eq toString(p) = "p" .
+    eq toString(s) = "s" . eq toString(t) = "t" .
+    eq toString(u) = "u" . eq toString(v) = "v" .
+    eq toString(w) = "w" . eq toString(x) = "x" .
+    eq toString(y) = "y" . eq toString(z) = "z" .
+    eq toString(q) = "q" . eq toString(r) = "r" .
+
+    eq toString(nilTerm) = "nilTerm" . eq toString(cons) = "cons" .
+    eq toString(append) = "append" . eq toString(member) = "member" .
+    eq toString(noteq) = "noteq" . eq toString(plus) = "plus" .
+    eq toString(sumlist) = "sumlist" . eq toString(is) = "is" .
+    eq toString(max) = "max" . eq toString(less) = "less" .
+
+    op natToNatP : Nat -> NatP .
+    eq natToNatP(0) = 0 .
+    eq natToNatP(N) = s(natToNatP(sd(N, 1))) .
+
+
+endm
+
+
+mod MTL-GRAMMAR is
+    protecting MTL-STRAT .
+    protecting NAT .
+    sort Action .
+
+    op list programs : -> Action .
+    op load program_ : Nat -> Action .
+    op check : -> Action .
+    op show predicates : -> Action .
+    op show program : -> Action .
+    op help : -> Action .
+    op query_ : PredicateInput -> Action .
+
+
+    ***Auxiliary grammar for queries
+    sorts VarTermInput ListInput PredicateInput PredicateListInput .
+    subsorts LPChar VarTermInput ListInput PredicateInput < PredicateListInput .
+    op nilInput : -> PredicateListInput [ctor] .
+    op parseError : -> PredicateInput [ctor] .
+    op _,_ : PredicateListInput PredicateListInput -> PredicateListInput [assoc id: nilInput] .
+
+    op [] : -> ListInput [ctor] .
+    op [_|_] : VarTermInput ListInput -> ListInput [ctor] .
+    op [_|_] : Nat ListInput -> ListInput [ctor] .
+    op [_|_] : LPChar ListInput -> ListInput [ctor] .
+    op noVar : -> VarTermInput [ctor] .
+    op X : Nat -> VarTermInput [ctor] .
+
+    op _(_) : LPChar LPChar -> PredicateInput [ctor] .
+    op _(_) : LPChar Nat -> PredicateInput [ctor] .
+    op _(_) : LPChar VarTermInput -> PredicateInput [ctor] .
+    op _(_) : LPChar ListInput -> PredicateInput [ctor] .
+    op _(_) : LPChar PredicateListInput -> PredicateInput [ctor] .
+
+
+    op _,_ : Nat Nat -> PredicateListInput [ctor] .
+    op _,_ : Nat PredicateListInput -> PredicateListInput [ctor] .
+
+    op _,_ : Nat LPChar -> PredicateListInput [ctor] .
+    op _,_ : Nat VarTermInput -> PredicateListInput [ctor] .
+    op _,_ : Nat ListInput -> PredicateListInput [ctor] .
+    op _,_ : LPChar Nat -> PredicateListInput [ctor] .
+    op _,_ : VarTermInput Nat -> PredicateListInput [ctor] .
+    op _,_ : ListInput Nat -> PredicateListInput [ctor] .
+
+    vars CId C1 C2 : LPChar .
+    vars N M : Nat .
+    var V : VarTermInput .
+    var L : ListInput .
+
+    var PI : PredicateInput .
+    vars H PLI PLI2 : PredicateListInput .
+
+    --- input predicate list (Prolog) to our syntax
+    op transformPredicate : PredicateInput -> Predicate .
+    eq transformPredicate(CId(C1)) = qidC(CId){qidC(C1)} .
+    eq transformPredicate(CId(N)) = qidC(CId){natToNatP(N)} .
+    eq transformPredicate(CId(X(N))) = qidC(CId){x{natToNatP(N)}} .
+    --- listInput
+
+    eq transformPredicate(CId(PLI)) =
+        qidC(CId){transformList(PLI)} .
+
+
+    op transformList : PredicateListInput -> LPNeTermList .
+    eq transformList(nilInput) = empty .
+
+    eq transformList((C1(PLI2)), PLI) = (qidC(C1)[transformList(PLI2)]), transformList(PLI) .
+    eq transformList((C1(PI)), PLI) = (qidC(C1)[transformList(PI)]), transformList(PLI) .
+    eq transformList((C1(N)), PLI) = (qidC(C1)[natToNatP(N)]), transformList(PLI) .
+    eq transformList(C1, PLI) = qidC(C1), transformList(PLI) .
+    eq transformList(N, PLI) = natToNatP(N), transformList(PLI) .
+    eq transformList(X(N), PLI) = x{natToNatP(N)}, transformList(PLI) .
+    eq transformList([], PLI) = qidC(nilTerm), transformList(PLI) .
+    eq transformList([C1 | L], PLI) = qidC(cons)[qidC(C1), transformList(L)], transformList(PLI) .
+    eq transformList([N | L], PLI) = qidC(cons)[natToNatP(N), transformList(L)], transformList(PLI) .
+    eq transformList([X(N) | L], PLI) = qidC(cons)[x{natToNatP(N)}, transformList(L)], transformList(PLI) .
+
+    eq transformList((C1(PLI2)), N) = (qidC(C1)[transformList(PLI2)]), natToNatP(N) .
+    eq transformList((C1(PI)), N) = (qidC(C1)[transformList(PI)]), natToNatP(N) .
+    eq transformList((C1(M)), N) = (qidC(C1)[natToNatP(M)]), natToNatP(N) .
+    eq transformList(C1, N) = qidC(C1), natToNatP(N) .
+    eq transformList(N, M) = natToNatP(N), natToNatP(M) .
+    eq transformList(X(N), M) = x{natToNatP(N)}, natToNatP(M) .
+    eq transformList([], N) = qidC(nilTerm), natToNatP(N) .
+    eq transformList([C1 | L], N) = qidC(cons)[qidC(C1), transformList(L)], natToNatP(N) .
+    eq transformList([N | L], M) = qidC(cons)[natToNatP(N), transformList(L)], natToNatP(M) .
+    eq transformList([X(N) | L], M) = qidC(cons)[x{natToNatP(N)}, transformList(L)], natToNatP(M) .
+
+
+    op transformList : PredicateInput -> LPNeTermList .
+    eq transformList((C1(PLI2))) = qidC(C1)[transformList(PLI2)] .
+    eq transformList((C1(PI))) = qidC(C1)[transformList(PI)] .
+    eq transformList((C1(N))) = qidC(C1)[natToNatP(N)] .
+    op transformList : LPChar -> LPNeTermList .
+    eq transformList(C1) = qidC(C1) [print "individual Qid"] .
+    op transformList : Nat -> LPNeTermList .
+    eq transformList(N) = natToNatP(N) [print "individual Nat"] .
+    op transformList : VarTermInput -> LPNeTermList .
+    eq transformList(X(N)) = x{natToNatP(N)} [print "individual VarTermInput"] .
+    op transformList : ListInput -> LPNeTermList .
+    eq transformList([]) = qidC(nilTerm) .
+    eq transformList([C1 | L]) = qidC(cons)[qidC(C1), transformList(L)] .
+    eq transformList([N | L]) = qidC(cons)[natToNatP(N), transformList(L)] .
+    eq transformList([X(N) | L]) = qidC(cons)[x{natToNatP(N)}, transformList(L)] .
+
+
+endm
+
+
+
+omod MTL-IO is
+    including MTL-GRAMMAR .
+    including STD-STREAM .
+    protecting META-LEVEL .
+    protecting MTL-STRAT .
+    protecting CONVERSION .
+    protecting LEXICAL .
+
+    class VM | action : Action, program : LPProgram . ---, query : PredicateList .
+
+    op idle : -> Action .
+    ops vm clausule : -> Oid .
+    op VM-GRAMMAR : -> Module .
+    eq VM-GRAMMAR = upModule('MTL-GRAMMAR, false) .
+    op interpret : -> Configuration .
+    eq interpret
+        = <>
+        < vm : VM | program : mt, action : idle > ---, query : nil >
+        write(stdout, vm,
+            "\n   =====================================" + YELLOW +
+            "\n               Maude" + RED + "Typed" + GREEN + "Log - v1" +
+            "\n            A Maude based Typed" +
+            "\n          Unification Interpreter" + BW +
+            "\n   ====================================" + WHITE +
+            "\n\n\n" + BW
+        ) .
+
+    vars O O' C : Oid .
+    var Str : String .
+
+
+    rl  < O : VM | >
+        wrote(O, O')
+        => < O : VM | >
+        getLine(stdin, O, "MaudeTypedLog> ") .
+
+    rl  < O : VM | action : idle >
+        gotLine(O, O', Str)
+        =>
+        if tokenize(Str) == 'quit
+        then
+            write(stdout, O, "Goodbye\n")
+        else
+            if metaParse(VM-GRAMMAR, tokenize(Str), 'Action) :: ResultPair
+                then
+                    < O : VM | action : downTerm(getTerm(metaParse(VM-GRAMMAR, tokenize(Str), 'Action)), (idle).Action) >
+                else
+                    < O : VM | action : idle >
+                    write(stdout, O, "Invalid input\n")
+            fi
+        fi .
+
+    var N : Nat .
+    var NP : NatP .
+    var P : LPProgram .
+    var CL : Clause .
+    var CLH : String .
+    vars NeTL NeTL1 NeTL2 NeTL3 : LPNeTermList .
+    var TL : LPTermList .
+    var T : LPTerm .
+    var PRD : Predicate .
+    var PRL : PredicateList .
+    vars Q1 Q2 : QidC .
+    var Id : LPString .
+
+
+    op printPredicateMain : LPProgram -> String .
+    ceq printPredicateMain(P) = "Program predicates:\n" + printPredicates(P)
+    if P =/= mt .
+    eq printPredicateMain(mt) = "No program loaded\n" [owise] .
+
+    op printPredicates : LPProgram -> String .
+    eq printPredicates(mt) = "\n" .
+    eq printPredicates(CL ;; P) = takePredicates(CL) + "\n" + printPredicates(P) .
+
+    op takePredicates : Clause -> String .
+    eq takePredicates(PRD :- PRL) = predicateToString(PRD) .
+
+    op predicateToString : Predicate -> String .
+    eq predicateToString(qidC(Id){NeTL}) = toString(Id) + "(" + printNeTL(NeTL) + ")" .
+    eq predicateToString(falsePredicate) = "falsePredicate" .
+    eq predicateToString(wrongPredicate) = "wrongPredicate" .
+    eq predicateToString(timeExceedPredicate) = "timeExceedPredicate" .
+
+    op printNeTL : LPNeTermList -> String .
+    eq printNeTL((qidC(Id), NeTL)) = toString(Id) + " " + printNeTL(NeTL) .
+    eq printNeTL((s(NP), NeTL)) = natPToString(NP, 1) + " " + printNeTL(NeTL) .
+    eq printNeTL((0, NeTL)) = "0 " + printNeTL(NeTL) .
+    eq printNeTL((x{NP}, NeTL)) = "X" + natPToString(NP, 0) + " " + printNeTL(NeTL) .
+    eq printNeTL((qidC(cons)[NeTL1, NeTL2], NeTL3))
+        = "[" + printNeTL(NeTL1) + " | " + printNeTL(NeTL2) + "] " + printNeTL(NeTL3) .
+    eq printNeTL((qidC(plus)[NeTL1, NeTL2], NeTL3))
+        = toString(plus) + "(" + printNeTL(NeTL1) + ", " + printNeTL(NeTL2) + ") " + printNeTL(NeTL3) .
+    eq printNeTL((qidC(Id)[NeTL1], NeTL2))
+        = toString(Id) + "(" + printNeTL(NeTL1) + ") " + printNeTL(NeTL2) .
+
+
+    eq printNeTL(qidC(Id)) = toString(Id) .
+    eq printNeTL(s(NP)) = natPToString(NP, 1) .
+    eq printNeTL(0) = "0" .
+    eq printNeTL(x{NP}) = "X" + natPToString(NP, 0) .
+    eq printNeTL((qidC(cons)[NeTL1, NeTL2]))
+        = "[" + printNeTL(NeTL1) + " | " + printNeTL(NeTL2) + "]" .
+    eq printNeTL((qidC(plus)[NeTL1, NeTL2]))
+        = toString(plus) + "(" + printNeTL(NeTL1) + ", " + printNeTL(NeTL2) + ")" .
+    eq printNeTL((qidC(Id)[NeTL1]))
+        = toString(Id) + "(" + printNeTL(NeTL1) + ")" .
+
+    op printProgramMain : LPProgram -> String .
+    ceq printProgramMain(P) = "Program clauses:\n" + printProgram(P)
+    if P =/= mt .
+    eq printProgramMain(mt) = "No program loaded\n" [owise] .
+
+    op printProgram : LPProgram -> String .
+    eq printProgram(CL ;; P) = takeProgramPrint(CL) + "\n" + printProgram(P) .
+    eq printProgram(mt) = "\n" .
+
+    op takeProgramPrint : LPProgram -> String .
+    eq takeProgramPrint(CL ;; P) = printProgramClause(CL) + takeProgramPrint(P) .
+    eq takeProgramPrint(mt) = "" .
+
+    op printProgramClause : Clause -> String .
+    eq printProgramClause(PRD :- PRL) = predicateToString(PRD) + " :- " + printPredicateList(PRL) + "." .
+
+    op printPredicateList : PredicateList -> String .
+    eq printPredicateList(nil) = "" .
+    ceq printPredicateList((PRD PRL)) = predicateToString(PRD) + ", " + printPredicateList(PRL)
+        if PRL =/= nil .
+    eq printPredicateList((PRD)) = predicateToString(PRD) .
+
+
+    op printCheckMain : LPProgram -> String .
+    ceq printCheckMain(P) = printCheck(hasTypeError(P)) + BW
+    if P =/= mt .
+    eq printCheckMain(mt) = YELLOW + "No program loaded. Load a program before\n" + BW [owise] .
+
+    op printCheck : LPProgram -> String .
+    eq printCheck(mt) = GREEN + "Program is type safe.\n" + BW .
+    eq printCheck(outOfBounds) = BLUE + "Program is type safe (not conclusive).\n" + BW .
+    eq printCheck(P) = takeCheck(P) .
+
+    op takeCheck : LPProgram -> String .
+    eq takeCheck(mt) = "" .
+    eq takeCheck(CL ;; P) =
+        RED + printProgramClause(CL) + BW + "\n" + takeCheck(P) .
+
+
+
+    op printListPrograms : -> String .
+    eq printListPrograms = "Available preloaded programs:\n"
+        + CYAN +   "\t1. Example 1. Paper Example 1, it is type safe.\n"
+        + CYAN +   "\t2. Example 2. Paper Example 2. Non-free type-error.\n"
+        + GREEN +  "\t3. Example 3. A basic program with no type-errors.\n"
+        + GREEN +  "\t4. Example 4. Error-free version of program Example 2.\n"
+        + RED +    "\t5. Example 5. Program with 2 type-errors.\n"
+        + BW +     "\t6. Append example. Non-terminating example.\n"
+        + BW +     "\t7. Member example. Terminating program error-free.\n"
+        + BW +     "\t8. Sumlist example.\n"
+        + BW +     "\t9. Max example.\n"
+        + BW .
+    
+    op printHelp : -> String .
+    eq printHelp = "Available commands:\n"
+        + GREEN + "\tPROGRAM FUNCTIONS\n"
+        + CYAN + "\tlist programs       " + WHITE + "- Lists all the predefined programs.\n"
+        + CYAN + "\tload program <N>    " + WHITE + "- Loads preloaded program N (1-8).\n"
+        + CYAN + "\tcheck               " + WHITE + "- Types check the current loaded program.\n"
+        + CYAN + "\tquery               " + WHITE + "- Executes a query in the loaded program.\n"
+        + GREEN + "\n\tSHOW FUNCTIONS\n"
+        + CYAN + "\tshow program        " + WHITE + "- Shows the current loaded program.\n"
+        + CYAN + "\tshow predicates     " + WHITE + "- Shows the predicates used in the clauses of the current program.\n"
+        + CYAN + "\tquit                " + WHITE + "- Exits the interpreter.\n"
+        + BW .
+
+    op natPToString : NatP Nat -> String .
+    eq natPToString(0, N) = string(N, 10) .
+    eq natPToString(s(NP), N) = natPToString(NP, (N + 1)) .
+
+
+    rl < O : VM | action : help, program : P >
+    => < O : VM | action : idle, program : P >
+    write(stdout, O, printHelp + "\n") .
+
+    rl < O : VM | action : list programs, program : P >
+    => < O : VM | action : idle, program : P >
+    write(stdout, O, printListPrograms + "\n") .
+
+    rl < O : VM | action : load program N, program : P >
+    => < O : VM | action : idle, program : takeProgram(N) >
+    write(stdout, O, "Loaded program " + string(N, 10) + "\n") .
+
+
+    rl < O : VM | action : check, program : P >
+    => < O : VM | action : idle, program : P >
+    write(stdout, O, "Type checking program...\n"
+        + printCheckMain(P) ) .
+
+
+    rl < O : VM | action : show program, program : P >
+    => < O : VM | action : idle, program : P >
+    write(stdout, O, "Show program function:\n"
+        + "---------------------\n"
+        + printProgramMain(P)
+        )
+    .
+
+    var N1 : NatP .
+    vars PL PL1 : PredicateList .
+    var PI : PredicateInput .
+    var SB : SubstitutionPair .
+    vars PR CLi : LPProgram .
+    var PREDICATESTRING : String .
+
+    rl < O : VM | action : show predicates, program : P >
+    => < O : VM | action : idle, program : P >
+    write(stdout, O, "Show predicates function:\n"
+        + "---------------------\n"
+        + printPredicateMain(P)
+        ) .
+
+
+
+    rl < O : VM | action : (query PI), program : P > ---, query : PL1  >
+    => < O : VM | action : idle, program : P > ---, query : PI >
+    write(stdout, O, "Executing query:\n"
+        + "---------------------\n"
+        + printSearch(executeSearch(transformPredicate(PI), P, 0, 30))
+        ) .
+
+    var QPL : QueryPairList .
+
+    op printSearch : QueryPairList -> String .
+    eq printSearch(nqp) = "\nNo more solutions found.\n" .
+    eq printSearch(qp(nil | P) QPL) =
+        "True" + "\n" .
+    eq printSearch(QPL) = outputProcessing(
+        getPredicateList(QPL), wrongPredicate
+    ) .
+
+
+    op getPredicateList : QueryPairList -> PredicateList .
+    eq getPredicateList(nqp) = nil .
+    eq getPredicateList(qp(nil | P) QPL) = trueResult [print "nil"] .
+    eq getPredicateList(qp(PRD | P)) = PRD [print "last: " PRD] .
+    eq getPredicateList(qp(PRD PRL | P) QPL) = PRD getPredicateList(QPL) [print "not last: " PRD] .
+
+    op outputProcessing : PredicateList Predicate -> String .
+    eq outputProcessing(trueResult PRL, PRD) = "True.\n" . ---if there is true, result is true
+    --- False output, if it reaches the last with false
+    eq outputProcessing(nil, falsePredicate) = "No solutions.\n" .
+    eq outputProcessing(falsePredicate, falsePredicate) = "No solutions.\n" .
+    eq outputProcessing(falsePredicate, wrongPredicate) = "No solutions.\n" .
+    eq outputProcessing(falsePredicate PRL, falsePredicate) = outputProcessing(PRL, falsePredicate) .
+    eq outputProcessing(falsePredicate PRL, wrongPredicate) = outputProcessing(PRL, falsePredicate) .
+    --- Wrong output, if it reaches the last with wrong
+    eq outputProcessing(nil, wrongPredicate) = "Type error in this query\n" .
+    eq outputProcessing(wrongPredicate, wrongPredicate) = "Type error in this query\n" .
+    eq outputProcessing(wrongPredicate PRL, wrongPredicate) = outputProcessing(PRL, wrongPredicate) .
+    eq outputProcessing(wrongPredicate PRL, falsePredicate) = outputProcessing(PRL, falsePredicate) .
+
+    eq outputProcessing(qidC(Id){NeTL}, PRD) = "The predicate is not defined\n" .
+
+endom
+
+erewrite in MTL-IO : interpret .
+
+quit

@@ -1,0 +1,699 @@
+set include BOOL off .
+fmod BOOLEAN is
+    sort Boolean .
+    
+    var B : Boolean .
+    op True : -> Boolean [ ctor metadata "0" ] .
+    op False : -> Boolean [ ctor metadata "1" ] .
+
+    op _And_ : Boolean Boolean -> Boolean [comm] .
+    eq False And B = False .
+    eq True And B = B .
+
+    op _Or_ : Boolean Boolean -> Boolean [comm] .
+    eq False Or B = B .
+    eq True Or B = True .
+endfm
+
+fmod NAT-PEANO is
+    pr BOOLEAN .
+
+    sorts NatP NzNatP ZeroP .
+    subsorts ZeroP NzNatP < NatP .
+
+    op 0 : -> ZeroP [ ctor metadata "10" ] .
+    op s : NatP -> NzNatP [ ctor metadata "11" ] .
+
+    vars M N N1 N2 : NatP .
+    ---ASSIGN METADATA VALUE
+    op max : NatP NatP -> NatP .
+    eq max(0, 0) = 0 .
+    eq max(0, s(N2)) = s(N2) .
+    eq max(s(N1), 0) = s(N1) .
+    eq max(s(N1), s(N2)) = s(max(N1, N2)) .
+
+    op _+_ : NatP NatP -> NatP [comm] .
+    eq 0 + N = N .
+    eq s(N) + M = s(N + M) .
+endfm
+
+fmod QID-CUSTOM is
+    pr NAT-PEANO .
+    
+    sorts Char String QidC .
+    subsort Char < String .
+
+    op _|_ : String String -> String [ ctor assoc metadata "16" ] .
+    op nullC : -> Char [ctor] .
+    op a : -> Char [ ctor metadata "12" ] .
+    op b : -> Char [ ctor metadata "13" ] .
+    op c : -> Char [ ctor metadata "14" ] .
+    ops d e f g h i j k l m n o p q r s t u v w x y z : -> Char [ctor] .
+    --- Other predicate heads
+    ops nilTerm cons : -> String [ctor] .
+    ops append member noteq : -> String [ctor] .
+    ops plus sumlist is max less : -> String [ctor] .
+    op mtString : -> String [ctor] .
+    op qidC : String -> QidC [ ctor metadata "15" ] .
+endfm
+
+fmod TYPE-TERM-SIGNATURE is
+    pr QID-CUSTOM .
+    
+    sorts BaseType VarType FType ListType Type NeTypeList TypeList .
+    subsorts BaseType VarType FType ListType < Type < NeTypeList < TypeList .
+    
+    op atom : -> BaseType [ ctor metadata "10" ] .
+    op int : -> BaseType [ ctor metadata "12" ] .
+    op flt : -> BaseType [ ctor metadata "14" ] .
+    op str : -> BaseType [ ctor metadata "16" ] .
+    op t{_} : NatP -> VarType [ ctor metadata "18" ] .
+    op _[[_]] : QidC NeTypeList -> FType [ ctor metadata "20" ] .
+    op list : Type -> ListType [ ctor metadata "22" ] .
+    
+    op nil : -> TypeList [ ctor metadata "4" ] .
+    op __ : TypeList TypeList -> TypeList [ assoc id: nil metadata "30" ] .
+    op __ : NeTypeList NeTypeList -> NeTypeList [ ctor assoc id: nil metadata "30" ] .
+
+    sorts TypeConstraint NeTypeConstraintSet TypeConstraintSet TypeConstraintSet? .
+    subsorts TypeConstraint < NeTypeConstraintSet < TypeConstraintSet < TypeConstraintSet? .
+
+    op wrongOutput : -> TypeConstraintSet? [ ctor metadata "46" ] .
+    op nilTYCS : -> TypeConstraintSet [ ctor metadata "40" ] .
+    op _=||=_ : Type Type -> TypeConstraint [ ctor metadata "42" ] .
+    op _&&_ : TypeConstraintSet TypeConstraintSet -> TypeConstraintSet [ assoc comm id: nilTYCS metadata "44" ] .
+    op _&&_ : NeTypeConstraintSet NeTypeConstraintSet -> NeTypeConstraintSet [ ctor assoc comm id: nilTYCS metadata "44" ] .
+
+    sorts TypeBinding NeTypeSubstitution TypeSubstitution TypeSubstitution?  .
+    subsorts TypeBinding < NeTypeSubstitution < TypeSubstitution <  TypeSubstitution? .
+    
+    op wrongType : -> TypeSubstitution? [ ctor metadata "56" ] .
+    op noneTY : -> TypeSubstitution [ ctor metadata "50" ] .
+    op _<--_ : VarType Type -> TypeBinding [ ctor metadata "52" ] .
+    op _;;;_ : TypeSubstitution TypeSubstitution -> TypeSubstitution [ assoc comm id: noneTY metadata "54" ] .
+    op _;;;_ : NeTypeSubstitution NeTypeSubstitution -> NeTypeSubstitution [ ctor assoc comm id: noneTY metadata "54" ] .
+
+    sorts  Float BaseTerm VarTerm FTerm ListTerm Term NeTermList TermList .
+    subsorts QidC NatP Float < BaseTerm .
+    subsorts BaseTerm VarTerm FTerm ListTerm < Term < NeTermList < TermList .
+    
+    op fl : NatP -> Float [ ctor metadata "11" ] .
+    op x{_} : NatP -> VarTerm [ ctor metadata "13" ] .
+    op _[_] : QidC NeTermList -> FTerm [ ctor metadata "15" ] .
+
+    op empty : -> TermList [ ctor metadata "5" ] .
+    op _,_ : TermList TermList -> TermList [ assoc id: empty gather (e E) prec 121 metadata "31" ] .
+    op _,_ : NeTermList NeTermList -> NeTermList [ ctor assoc id: empty gather (e E) prec 121 metadata "31" ] .
+
+    sorts TermBinding NeTermSubstitution TermSubstitution TermSubstitution? .
+    subsorts TermBinding < NeTermSubstitution < TermSubstitution < TermSubstitution? .
+    
+    op falseSub : -> TermSubstitution? [ ctor metadata "47" ] .
+    op noneT : -> TermSubstitution [ ctor metadata "41" ] .
+    op _<-_ : VarTerm Term -> TermBinding [ ctor metadata "43" ] .
+    op _;_ : TermSubstitution TermSubstitution -> TermSubstitution [ assoc comm id: noneT metadata "45" ] .
+    op _;_ : NeTermSubstitution NeTermSubstitution -> NeTermSubstitution [ ctor assoc comm id: noneT metadata "45" ] .
+
+    sorts TermConstraint NeTermConstraintSet TermConstraintSet TermConstraintSet? .
+    subsorts TermConstraint < NeTermConstraintSet < TermConstraintSet < TermConstraintSet? .
+    
+    op falseOutput : -> TermConstraintSet? [ ctor metadata "57" ] .
+    op nilTCS : -> TermConstraintSet [ ctor metadata "51" ] .
+    op _=|=_ : Term Term -> TermConstraint [ ctor metadata "53" ] .
+    op _&_ : TermConstraintSet TermConstraintSet -> TermConstraintSet [ assoc comm id: nilTCS metadata "55" ] .
+    op _&_ : NeTermConstraintSet NeTermConstraintSet -> NeTermConstraintSet [ ctor assoc comm id: nilTCS metadata "55" ] .
+endfm
+
+fmod TYPE-TERM-AUX is
+    pr TYPE-TERM-SIGNATURE .
+
+    vars N N1 N2 : NatP .
+    vars FL FL1 FL2 : NatP .
+    vars Q F F1 F2 : QidC .
+    vars C C1 C2 : Char .
+    vars STR STR1 STR2 : String .
+    
+    op _<_ : NatP NatP -> Boolean [ prec 37 metadata "100" ] .
+    eq 0 < 0 = False .
+    eq 0 < s(N2) = True .
+    eq s(N1) < 0 = False .
+    eq s(N1) < s(N2) = N1 < N2 .
+
+    op equals : NatP NatP -> Boolean [ comm metadata "101" ] .
+    eq equals(N, N) = True .
+    eq equals(0, s(N)) = False .
+    eq equals(s(N1), s(N2)) = equals(N1, N2) .
+
+    op equals : QidC QidC -> Boolean [ comm metadata "104" ] .
+    eq equals(qidC(STR1), qidC(STR2)) = equals(STR1, STR2) .
+
+    op equals : String String -> Boolean [ comm metadata "103" ] .
+    eq equals(STR, STR) = True .
+    eq equals(C1, C2 | STR) = False .
+    eq equals(C | STR1, C | STR2) = equals(STR1, STR2) .
+    ceq equals(C1 | STR1, C2 | STR2) = False if equals(C1, C2) = False .
+
+    op equals : Char Char -> Boolean [ comm metadata "102" ] .
+    eq equals(C, C) = True .
+    eq equals(STR1, STR2) = False [owise] .
+
+    vars TYCS TYCS1 TYCS2 : TypeConstraintSet .
+    var NTYCS : NeTypeConstraintSet .
+    vars TYSB TYSB1 TYSB2 : TypeSubstitution .
+    vars TYL TYL1 TYL2 : TypeList .
+    vars NTYL NTYL1 NTYL2 : NeTypeList .
+    vars TY TY1 TY2 : Type .
+    var LTY : ListType .
+    var FTY : FType .
+    vars VTY VTY1 VTY2 : VarType .
+    var BTY : BaseType .
+
+    op size : TypeList -> NatP [ metadata "200" ] .
+    eq size(nil) = 0 .
+    eq size(TY TYL) = s(size(TYL)) .
+
+    op equals : TypeList TypeList -> Boolean [ comm metadata "206" ] .
+    eq equals(TYL, TYL) = True .
+    eq equals(nil, NTYL) = False .
+    
+    op equals : NeTypeList NeTypeList -> Boolean [ comm metadata "204" ] .
+    eq equals(TY1, TY2 NTYL) = False .
+    eq equals(TY NTYL1, TY NTYL2) = equals(NTYL1, NTYL2) .
+    ceq equals(TY1 NTYL1, TY2 NTYL2) = False if equals(TY1, TY2) = False .
+    
+    op equals : Type Type -> Boolean [ comm metadata "202" ] .
+    eq equals(TY, TY) = True .
+    eq equals(atom, int) = False .
+    eq equals(atom, flt) = False .
+    eq equals(atom, str) = False .
+    eq equals(int, flt) = False .
+    eq equals(int, str) = False .
+    eq equals(flt, str) = False .
+    eq equals(BTY, VTY) = False .
+    eq equals(BTY, FTY) = False .
+    eq equals(BTY, LTY) = False .
+    ceq equals(t{N1}, t{N2}) = False if equals(N1, N2) = False .
+    eq equals(VTY, FTY) = False .
+    eq equals(VTY, LTY) = False .
+    eq equals(F[[NTYL1]], F[[NTYL2]]) = equals(NTYL1, NTYL2) .
+    ceq equals(F1[[NTYL1]], F2[[NTYL2]]) = False if equals(F1, F2) = False .
+    eq equals(FTY, LTY) = False .
+    eq equals(list(NTYL1), list(NTYL2)) = equals(NTYL1, NTYL2) .
+    
+    op equals : TypeSubstitution? TypeSubstitution? -> Boolean [ comm metadata "212" ] .
+    eq equals(wrongType, wrongType) = False .
+    eq equals(TYSB, wrongType) = False .
+    eq equals(noneTY, (VTY <-- TY) ;;; TYSB) = False .
+    eq equals((VTY <-- TY) ;;; TYSB1, (VTY <-- TY) ;;; TYSB2) = equals(TYSB1, TYSB2) .
+    ceq equals((VTY1 <-- TY1) ;;; TYSB1, TYSB2) = False
+        if contains((VTY1 <-- TY1), TYSB2) = False .
+
+    op contains : TypeBinding TypeSubstitution -> Boolean [ metadata "210" ] .
+    eq contains(VTY <-- TY, noneTY) = False .
+    eq contains(VTY <-- TY, (VTY <-- TY) ;;; TYSB) = True .
+    ceq contains(VTY1 <-- TY1, (VTY2 <-- TY2) ;;; TYSB) = contains((VTY1 <-- TY1), TYSB)
+        if equals(VTY1,VTY2) = False 
+        /\ equals(TY1, TY2) = False .
+
+    op occursSB : VarType TypeSubstitution -> Boolean [ metadata "234" ] .
+    eq occursSB(VTY, noneTY) = False .
+    eq occursSB(VTY, (VTY <-- TY) ;;; TYSB) = True .
+    ceq occursSB(VTY1, (VTY2 <-- TY) ;;; TYSB) = True if occurs(VTY1, TY) = True .
+    ceq occursSB(VTY1, (VTY2 <-- TY) ;;; TYSB) = occursSB(VTY1, TYSB) 
+        if equals(VTY1, VTY2) = False 
+        /\ occurs(VTY1, TY) = False .
+
+    op occursCS : VarType TypeConstraintSet -> Boolean [ metadata "232" ] .
+    eq occursCS(VTY, nilTYCS) = False .
+    ceq occursCS(VTY, (TY1 =||= TY2) && TYCS) = True if occurs(VTY, TY1) = True .
+    ceq occursCS(VTY, (TY1 =||= TY2) && TYCS) = True if occurs(VTY, TY2) = True .
+    ceq occursCS(VTY, (TY1 =||= TY2) && TYCS) = occursCS(VTY, TYCS) 
+        if occurs(VTY, TY1) = False 
+        /\ occurs(VTY, TY2) = False .
+
+    op occurs : VarType TypeList -> Boolean [ metadata "230" ] .
+    eq occurs(VTY, (nil).TypeList) = False .
+    eq occurs(VTY, BTY) = False .
+    eq occurs(VTY, VTY) = True .
+    eq occurs(t{N1}, t{N2}) = equals(N1, N2) .
+    eq occurs(VTY, F[[NTYL]]) = occurs(VTY, NTYL) .
+    eq occurs(VTY, list(TY)) = occurs(VTY, TY)  .
+    ceq occurs(VTY, (TY NTYL)) = True if occurs(VTY, TY) = True .
+    ceq occurs(VTY, (TY NTYL)) = occurs(VTY, NTYL) if occurs(VTY, TY) = False .
+
+    op applySub : TypeConstraintSet TypeSubstitution -> TypeConstraintSet [ metadata "252" ] .
+    eq applySub(nilTYCS, TYSB) = nilTYCS .
+    eq applySub(TYCS, noneTY) = TYCS .
+    eq applySub(((TY1 =||= TY2) && TYCS), TYSB) = (applySub(TY1, TYSB) =||= applySub(TY2, TYSB)) && applySub(TYCS, TYSB) .
+
+    op applySub : TypeList TypeSubstitution -> TypeList [ metadata "250" ] .
+    eq applySub(nil, TYSB) = nil .
+    eq applySub((TY NTYL), TYSB) = applySub(TY, TYSB) applySub(NTYL, TYSB) .
+    op applySub : Type TypeSubstitution -> Type [ metadata "248" ] .
+    eq applySub(TYL, noneTY) = TYL .
+    eq applySub(BTY, TYSB) = BTY .
+    eq applySub(VTY, (VTY <-- TY) ;;; TYSB) = TY .
+    ceq applySub(VTY1, (VTY2 <-- TY) ;;; TYSB) = applySub(VTY1, TYSB) if equals(VTY1, VTY2) = False .
+    eq applySub(F[[NTYL]], TYSB) =  F[[applySub(NTYL, TYSB)]] .
+    eq applySub(list(TY), TYSB) = list(applySub(TY, TYSB)) .
+
+    op isLowerVar : VarType Type -> Boolean [ metadata "260" ] .
+    eq isLowerVar(VTY, BTY) = True .
+    eq isLowerVar(VTY, VTY) = False .
+    eq isLowerVar(t{N1}, t{N2}) = (N1 < N2) .
+    eq isLowerVar(VTY, FTY) = True .
+    eq isLowerVar(VTY, LTY) = True .
+
+    op getVars : TypeList -> TypeList [ metadata "2000" ] .
+    eq getVars(nil) = nil .
+    eq getVars(BTY) = nil .
+    eq getVars(VTY) = VTY .
+    eq getVars(F[[NTYL]]) = getVars(NTYL) .
+    eq getVars(list(TY)) = getVars(TY) .
+    eq getVars((TY NTYL)) = getVars(TY) getVars(NTYL) .
+    
+    op fixPoint? : TypeConstraintSet TypeList -> Boolean [ metadata "4000" ] .
+    eq fixPoint?(nilTYCS, TYL) = True .
+    eq fixPoint?((FTY =||= TY) && TYCS, TYL) = False .
+    eq fixPoint?((BTY =||= TY) && TYCS, TYL) = False .
+    eq fixPoint?((LTY =||= TY) && TYCS, TYL) = False .
+    ceq fixPoint?((VTY =||= TY) && TYCS, TYL) = False if occurs(VTY, TYL) = True .
+    ceq fixPoint?((VTY =||= TY) && TYCS, TYL) = False if occurs(VTY, TY) = True .
+    ceq fixPoint?((VTY =||= TY) && TYCS, TYL) = False if occursCS(VTY, TYCS) = True .
+    ceq fixPoint?((VTY =||= TY) && TYCS, TYL) = fixPoint?(TYCS, (TYL VTY getVars(TY))) 
+        if occurs(VTY, TYL) = False 
+        /\ occurs(VTY, TY) = False
+        /\ occursCS(VTY, TYCS) = False .
+    
+    op wellFormed? : TypeSubstitution? TypeList -> Boolean [ metadata "5002" ] .
+    eq wellFormed?(wrongType, TYL) = True .
+    op wellFormed? : TypeSubstitution TypeList -> Boolean [ metadata "5000" ] .
+    eq wellFormed?(noneTY, TYL) = True .
+    ceq wellFormed?((VTY <-- TY) ;;; TYSB, TYL) = False if occurs(VTY, TYL) = True .
+    ceq wellFormed?((VTY <-- TY) ;;; TYSB, TYL) = False if occurs(VTY, TY) = True .
+    ceq wellFormed?((VTY <-- TY) ;;; TYSB, TYL) = False if occursSB(VTY, TYSB) = True .
+    ceq wellFormed?((VTY <-- TY) ;;; TYSB, TYL) = wellFormed?(TYSB, (TYL VTY getVars(TY))) 
+        if occurs(VTY, TYL) = False 
+        /\ occurs(VTY, TY) = False
+        /\ occursSB(VTY, TYSB) = False .
+
+    op check : TypeConstraintSet TypeSubstitution? -> Boolean [ metadata "6005" ] .
+    eq check(TYCS, wrongType) = True .
+    op check : TypeConstraintSet TypeSubstitution -> Boolean [ metadata "6004" ] .
+    ceq check(TYCS, TYSB) = check(applySub(TYCS, TYSB)) if wellFormed?(TYSB, nil) = True .
+    ceq check(TYCS, TYSB) = False if wellFormed?(TYSB, nil) = False .
+    
+    op check : TypeConstraintSet -> Boolean [ metadata "6002" ] .
+    eq check(nilTYCS) = True .
+    op check : NeTypeConstraintSet -> Boolean [ metadata "6000" ] .
+    eq check((TY =||= TY) && TYCS) = check(TYCS) .
+    ceq check((TY1 =||= TY2) && TYCS) = False if equals(TY1, TY2) = False .
+
+    op getSub : TypeConstraintSet? -> TypeSubstitution? [ metadata "7002" ] .
+    eq getSub(wrongOutput) = wrongType .
+    op getSub : TypeConstraintSet -> TypeSubstitution [ metadata "7000" ] .
+    eq getSub(nilTYCS) = noneTY .
+    eq getSub((VTY =||= TY) && TYCS) = (VTY <-- TY) ;;; getSub(TYCS) .
+
+    vars TCS TCS1 TCS2 : TermConstraintSet .
+    var NTCS : NeTermConstraintSet .
+    vars TSB TSB1 TSB2 : TermSubstitution .
+    vars TL TL1 TL2 : TermList .
+    vars NTL NTL1 NTL2 : NeTermList .
+    vars T T1 T2 T3 T4 : Term .
+    var LT : ListTerm .
+    var FT : FTerm .
+    vars VT VT1 VT2 : VarTerm .
+    var FLO : Float .
+    var BT : BaseTerm .
+
+    op size : TermList -> NatP [ metadata "201" ] .
+    eq size(empty) = 0 .
+    eq size((T,TL)) = s(size(TL)) .
+    
+    op equals : TermList TermList -> Boolean [ comm metadata "207" ] .
+    eq equals(TL, TL) = True .
+    eq equals(empty, NTL) = False .
+
+    op equals : NeTermList NeTermList -> Boolean [ comm metadata "205" ] .
+    eq equals(T1, (T2,NTL)) = False .
+    eq equals((T, NTL1), (T, NTL2)) = equals(NTL1, NTL2) .
+    ceq equals((T1, NTL1), (T2, NTL2)) = False if equals(T1, T2) = False .
+    
+    op equals : Term Term -> Boolean [ comm metadata "203" ] .
+    eq equals(T, T) = True .
+    eq equals(N, Q) = False .
+    eq equals(N, FLO) = False .
+    eq equals(Q, FLO) = False .
+    eq equals(fl(FL), fl(FL)) = True .
+    ceq equals(fl(FL1), fl(FL2)) = False if equals(FL1, FL2) = False .
+    eq equals(BT, VT) = False .
+    eq equals(BT, FT) = False .
+    eq equals(BT, LT) = False .
+    eq equals(VT, VT) = True .
+    ceq equals(x{N1}, x{N2}) = False if equals(N1, N2) = False .
+    eq equals(VT, FT) = False .
+    eq equals(VT, LT) = False .
+    eq equals(F[NTL1], F[NTL2]) = equals(NTL1, NTL2) .
+    ceq equals(F1[NTL1], F2[NTL2]) = False if equals(F1, F2) = False .
+    eq equals(FT, LT) = False .
+
+    eq equals(qidC(cons)[T, T2], qidC(cons)[T, T4]) = equals(T2, T4) .
+    ceq equals(qidC(cons)[T1, T2], qidC(cons)[T3, T4]) = False if equals(T1, T2) = False .
+    eq equals(qidC(cons)[T1, T2], qidC(nilTerm)) = False .
+
+    op equals : TermSubstitution? TermSubstitution? -> Boolean [ comm metadata "213" ] .
+    eq equals(falseSub, falseSub) = True .
+    op equals : TermSubstitution TermSubstitution? -> Boolean [ comm metadata "213" ] .
+    eq equals(TSB, falseSub) = False .
+    op equals : TermSubstitution TermSubstitution -> Boolean [ comm metadata "213" ] .
+    eq equals(noneT, (VT <- T) ; TSB1) = False .
+    eq equals((VT <- T) ; TSB1, (VT <- T) ; TSB2) = equals(TSB1, TSB2) .
+    ceq equals((VT <- T) ; TSB1, TSB2) = False 
+        if contains((VT <- T), TSB2) = False .
+
+    op contains : TermBinding TermSubstitution -> Boolean [ metadata "211" ] .
+    eq contains(VT <- T, noneT) = False .
+    eq contains(VT <- T, (VT <- T) ; TSB) = True .
+    ceq contains(VT1 <- T1, (VT2 <- T2) ; TSB) = contains((VT1 <- T1), TSB)
+        if equals(VT1, VT2) = False 
+        /\ equals(T1, T2) = False .
+
+    op occursSB : VarTerm TermSubstitution -> Boolean [ metadata "235" ] .
+    eq occursSB(VT, noneT) = False .
+    eq occursSB(VT, (VT <- T) ; TSB) = True .
+    ceq occursSB(VT1, (VT2 <- T) ; TSB) = True if occurs(VT1, T) = True .
+    ceq occursSB(VT1, (VT2 <- T) ; TSB) = occursSB(VT1, TSB) 
+        if equals(VT1, VT2) = False 
+        /\ occurs(VT1, T) = False .
+    
+    op occursCS : VarTerm TermConstraintSet -> Boolean [ metadata "233" ] .
+    eq occursCS(VT, nilTCS) = False .
+    ceq occursCS(VT, (T1 =|= T2) & TCS) = True if occurs(VT, T1) = True .
+    ceq occursCS(VT, (T1 =|= T2) & TCS) = True if occurs(VT, T2) = True .
+    ceq occursCS(VT, (T1 =|= T2) & TCS) = occursCS(VT, TCS) 
+        if occurs(VT, T1) = False 
+        /\ occurs(VT, T2) = False .
+
+    op occurs : VarTerm TermList -> Boolean [ metadata "231" ] .
+    eq occurs(VT, empty) = False .
+    eq occurs(x{N1}, x{N2}) = equals(N1, N2) . ---Comparación entre dos variables
+    eq occurs(VT, BT) = False .
+    eq occurs(VT, VT) = True .
+    eq occurs(VT, F[NTL]) = occurs(VT, NTL) .
+    eq occurs(VT, qidC(nilTerm)) = False .
+    ceq occurs(VT, qidC(cons)[T1, T2]) = True if occurs(VT, T1) = True .
+    ceq occurs(VT, qidC(cons)[T1, T2]) = True if occurs(VT, T2) = True .
+    ceq occurs(VT, (T, NTL)) = True if occurs(VT, T) = True .
+    ceq occurs(VT, (T, NTL)) = occurs(VT, NTL) if occurs(VT, T) = False .
+
+    op applySub : TermConstraintSet TermSubstitution -> TermConstraintSet [ metadata "253" ] .
+    eq applySub(nilTCS, TSB) = nilTCS .
+    eq applySub(TCS, noneT) = TCS .
+    eq applySub(((T1 =|= T2) & TCS), TSB) = (applySub(T1, TSB) =|= applySub(T2, TSB)) & applySub(TCS, TSB) .
+
+    op applySub : TermList TermSubstitution -> TermList [ metadata "251" ] .
+    eq applySub(empty, TSB) = empty .
+    eq applySub((T, NTL), TSB) = applySub(T, TSB) , applySub(NTL, TSB) .
+    op applySub : Term TermSubstitution -> Term [ metadata "249" ] .
+    eq applySub(TL, noneT) = TL .
+    eq applySub(BT, TSB) = BT .
+    eq applySub(VT, (VT <- T) ; TSB) = T .
+    ceq applySub(VT1, (VT2 <- T) ; TSB) = applySub(VT1, TSB) if equals(VT1, VT2) = False .
+    eq applySub(F[NTL], TSB) =  F[applySub(NTL, TSB)] .
+    eq applySub(qidC(nilTerm), TSB) = qidC(nilTerm) .
+    eq applySub(qidC(cons)[T1, T2], TSB) =  qidC(cons)[applySub(T1, TSB), applySub(T2, TSB)] .
+    
+    op isLowerVar : VarTerm Term -> Boolean [ metadata "262" ] .
+    eq isLowerVar(VT, BT) = True .
+    eq isLowerVar(VT, VT) = False .
+    eq isLowerVar(x{N1}, x{N2}) = (N1 < N2) .
+    eq isLowerVar(VT, FT) = True .
+    eq isLowerVar(VT, LT) = True .
+    
+    op getVars : TermList -> TermList [ metadata "2001" ] .
+    eq getVars(empty) = empty .
+    eq getVars(BT) = empty .
+    eq getVars(VT) = VT .
+    eq getVars(F[NTL]) = getVars(NTL) .
+    eq getVars(qidC(nilTerm)) = empty .
+    eq getVars(qidC(cons)[T1, T2]) = getVars(T1) , getVars(T2) .
+    eq getVars((T,NTL)) = getVars(T) , getVars(NTL) .
+
+    op fixPoint? : TermConstraintSet TermList -> Boolean [ metadata "4001" ] .
+    eq fixPoint?(nilTCS, TL) = True .
+    eq fixPoint?((FT =|= T) & TCS, TL) = False .
+    eq fixPoint?((BT =|= T) & TCS, TL) = False .
+    eq fixPoint?((LT =|= T) & TCS, TL) = False .
+    ceq fixPoint?((VT =|= T) & TCS, TL) = False if occurs(VT, TL) = True .
+    ceq fixPoint?((VT =|= T) & TCS, TL) = False if occurs(VT, T) = True .
+    ceq fixPoint?((VT =|= T) & TCS, TL) = False if occursCS(VT, TCS) = True .
+    ceq fixPoint?((VT =|= T) & TCS, TL) = fixPoint?(TCS, (TL, VT, getVars(T))) 
+        if occurs(VT, TL) = False 
+        /\ occurs(VT, T) = False
+        /\ occursCS(VT, TCS) = False .
+    
+    op wellFormed? : TermSubstitution? TermList -> Boolean [ metadata "5003" ] .
+    eq wellFormed?(falseSub, TL) = True .
+    op wellFormed? : TermSubstitution TermList -> Boolean [ metadata "5001" ] .
+    eq wellFormed?(noneT, TL) = True .
+    ceq wellFormed?((VT <- T) ; TSB, TL) = False if occurs(VT, TL) = True .
+    ceq wellFormed?((VT <- T) ; TSB, TL) = False if occurs(VT, T) = True .
+    ceq wellFormed?((VT <- T) ; TSB, TL) = False if occursSB(VT, TSB) = True .
+    ceq wellFormed?((VT <- T) ; TSB, TL) = wellFormed?(TSB, (TL, VT, getVars(T))) 
+        if occurs(VT, TL) = False 
+        /\ occurs(VT, T) = False 
+        /\ occursSB(VT, TSB) = False .
+
+    op check : TermConstraintSet TermSubstitution? -> Boolean [ metadata "6007" ] .
+    eq check(TCS, falseSub) = True .
+    op check : TermConstraintSet TermSubstitution -> Boolean [ metadata "6005" ] .
+    ceq check(TCS, TSB) = check(applySub(TCS, TSB)) if wellFormed?(TSB, empty) = True .
+    ceq check(TCS, TSB) = False if wellFormed?(TSB, empty) = False .
+    
+    op check : TermConstraintSet -> Boolean [ metadata "6003" ] .
+    eq check(nilTCS) = True .
+    op check : NeTermConstraintSet -> Boolean [ metadata "6001" ] .
+    eq check((T =|= T) & TCS) = check(TCS) .
+    ceq check((T1 =|= T2) & TCS) = False if equals(T1, T2) = False .
+
+    op getSub : TermConstraintSet? -> TermSubstitution? [ metadata "7003" ] .
+    eq getSub(falseOutput) = falseSub .
+    op getSub : TermConstraintSet -> TermSubstitution [ metadata "7001" ] .
+    eq getSub(nilTCS) = noneT .
+    eq getSub((VT =|= T) & TCS) = (VT <- T) ; getSub(TCS) .
+endfm
+
+fmod TYPE-TERM-UNIFICATION is
+    pr TYPE-TERM-AUX .
+
+    vars NTL NTL1 NTL2 : NeTermList .
+    vars T T1 T2 T3 T4 : Term .
+    vars TL1 TL2 : TermList .
+    var TCS : TermConstraintSet .
+    vars F F1 F2 : QidC .
+    vars BT BT1 BT2 : BaseTerm .
+    vars VT VT1 VT2 : VarTerm .
+    var LT : ListTerm .
+    var FT : FTerm .
+    
+    vars NTYL NTYL1 NTYL2 : NeTypeList .
+    vars TY TY1 TY2 : Type .
+    var TYCS : TypeConstraintSet .
+    vars BTY BTY1 BTY2 : BaseType .
+    vars VTY VTY1 VTY2 : VarType .
+    vars TYL TYL1 TYL2 : TypeList .
+    var FTY : FType .
+    var LTY : ListType .
+
+    vars N N1 N2 : NatP .
+    var FL : Float .
+    var Q : QidC .
+
+    sort Triple .
+    op {_,_,_} : TypeList TypeConstraintSet NatP -> Triple [ ctor metadata "138" ] .
+    
+    op getType : Triple -> TypeList [ metadata "1020" ] .
+    eq getType({ TYL, TYCS, N }) = TYL .
+
+    op getConstraint : Triple -> TypeConstraintSet [ metadata "1021" ] .
+    eq getConstraint({ TYL, TYCS, N }) = TYCS .
+
+    op getNatP : Triple -> NatP [ metadata "1022" ] .
+    eq getNatP({ TYL, TYCS, N }) = N .
+
+    ---Generate function to get the types of the terms
+    op generate : TermConstraintSet NatP -> TypeConstraintSet [ metadata "1023" ] .
+    op generate : NeTermConstraintSet NatP -> NeTypeConstraintSet [ metadata "1023" ] .
+    eq generate(nilTCS, N) = nilTYCS .
+    eq generate((T1 =|= T2) & TCS, N) =
+        (getType(generate(T1,N)) =||= getType(generate(T2,getNatP(generate(T1,N))))) &&
+        getConstraint(generate(T1,N)) &&
+        getConstraint(generate(T2,getNatP(generate(T1,N)))) &&
+        generate(TCS, getNatP(generate(T2,getNatP(generate(T1,N)))))
+        .
+
+    op generate : NeTermList NatP -> Triple [ metadata "1024" ] .
+    eq generate(x{N1}, N2) = { t{N1}, nilTYCS, N2 } .
+    eq generate(N1, N2) = { int, nilTYCS, N2 } .
+    eq generate(fl(FL), N) = { flt, nilTYCS, N } .
+    ceq generate(Q, N) = { atom, nilTYCS, N }
+        if equals(Q,qidC(nilTerm)) = False .
+    eq generate(qidC(nilTerm), N) = { list(t{N}), nilTYCS, s(N) } .
+    ceq generate(F[NTL], N) = { F[[getType(generate(NTL, N))]], getConstraint(generate(NTL, N)), getNatP(generate(NTL, N)) } 
+        if equals(F,qidC(cons)) = False .
+    eq generate(qidC(cons)[T1, T2], N) =
+    {
+        list(t{getNatP(generate(T1, N))}),
+
+            (list(t{getNatP(generate(T1, N))}) =||=
+                getType(generate(T2, getNatP(generate(T1, N)))))
+                    &&
+            (t{getNatP(generate(T1, N))} =||=
+                getType(generate(T1, N)))
+                    &&
+            (getConstraint(generate(T1, N)))
+                    &&
+            (getConstraint(generate(T2, (getNatP(generate(T1, N)))))),
+
+        getNatP(generate(T2, (getNatP(generate(T1, N)))))
+    } .
+    eq generate((T,NTL), N) =
+        {
+            (getType(generate(T, N)) getType(generate(NTL, getNatP(generate(T, N))))),
+            (getConstraint(generate(T, N)) && getConstraint(generate(NTL, getNatP(generate(T, N))))),
+            getNatP(generate(NTL, getNatP(generate(T,N))))
+        } .
+
+
+    op unify : TypeConstraintSet -> TypeConstraintSet? [ metadata "8000" ] .
+    op unify : TypeConstraintSet -> TypeConstraintSet [ metadata "8000" ] .
+    eq unify(wrongOutput && TYCS) = wrongOutput .
+    ---Rule 1
+    ceq unify(((F[[TY1 NTYL1]] =||= F[[TY2 NTYL2]]) && TYCS)) =
+        unify(unify(TY1 =||= TY2) && unify(F[[NTYL1]] =||= F[[NTYL2]]) && TYCS)
+        if (equals(size(NTYL1), size(NTYL2))) = True .
+
+    eq unify(((F[[TY1]] =||= F[[TY2]]) && TYCS)) =
+        unify((TY1 =||= TY2) && TYCS) .
+    eq unify(((list(TY1) =||= list(TY2)) && TYCS)) = unify(((TY1 =||= TY2) && TYCS)) .
+
+    ---Rule 2
+    eq unify(((TY =||= TY) && TYCS)) = unify(TYCS) .
+
+    ---Rule 3
+    ceq unify(((F1[[NTYL1]] =||= F2[[NTYL2]]) && TYCS)) = wrongOutput
+        if equals(F1, F2) = False .
+
+    ceq unify(((F1[[NTYL1]] =||= F2[[NTYL2]]) && TYCS)) = wrongOutput
+        if equals(size(NTYL1), size(NTYL2)) = False .
+
+    eq unify(((FTY =||= BTY) && TYCS)) = wrongOutput .
+    eq unify(((FTY =||= LTY) && TYCS)) = wrongOutput .
+
+    eq unify(((BTY =||= FTY) && TYCS)) = wrongOutput .
+    eq unify(((BTY =||= LTY) && TYCS)) = wrongOutput .
+
+    eq unify(((LTY =||= BTY) && TYCS)) = wrongOutput .
+    eq unify(((LTY =||= FTY) && TYCS)) = wrongOutput .
+
+    ceq unify(((BTY1 =||= BTY2) && TYCS)) = wrongOutput
+        if equals(BTY1, BTY2) = False .
+
+    ceq unify(((VTY1 =||= VTY2) && TYCS)) = unify((VTY2 =||= VTY1) && TYCS)
+        if isLowerVar(VTY2, VTY1) = True .
+
+    eq unify(((BTY =||= VTY) && TYCS)) = unify((VTY =||= BTY) && TYCS) .
+    eq unify(((FTY =||= VTY) && TYCS)) = unify((VTY =||= FTY) && TYCS) .
+    eq unify(((LTY =||= VTY) && TYCS)) = unify((VTY =||= LTY) && TYCS) .
+
+    ---Rule 5
+    ceq unify(((VTY =||= TY) && TYCS)) = unify(((VTY =||= TY) && applySub(TYCS, (VTY <-- TY))))
+        if occurs(VTY, TY) = False
+        /\ occursCS(VTY, TYCS) = True
+        /\ isLowerVar(VTY, TY) = True .
+
+    ---Rule 6
+    ceq unify(((VTY =||= TY) && TYCS)) = wrongOutput
+        if occurs(VTY, TY) = True .
+
+    ---Final unify equation, cannot execute any other term unification rule
+    ceq unify(TYCS) = TYCS
+        if fixPoint?(TYCS, nil) = True .
+
+
+    op unify : TermConstraintSet -> TermConstraintSet? [ metadata "8001" ] .
+    op unify : TermConstraintSet -> TermConstraintSet [ metadata "8001" ] .
+    eq unify(falseOutput & TCS) = falseOutput .
+    ---Rule 7
+    ceq unify(((F[T1, NTL1] =|= F[T2, NTL2]) & TCS)) =
+        unify((unify(T1 =|= T2) & unify(F[NTL1] =|= F[NTL2]) & TCS))
+        if equals(size(NTL1), size(NTL2)) = True .
+
+    eq unify(((F[T1] =|= F[T2]) & TCS)) = unify(((T1 =|= T2) & TCS)) .
+    eq unify(((qidC(cons)[T1,T2] =|= qidC(cons)[T3,T4]) & TCS)) = unify(((T1 =|= T3) & (T2 =|= T4) & TCS)) .
+
+    ---Rule 8
+    eq unify(((T =|= T) & TCS)) = unify(TCS) .
+
+    ---Rule 9
+    ceq unify(((F1[NTL1] =|= F2[NTL2]) & TCS)) = falseOutput
+        if equals(F1, F2) = False .
+
+    ceq unify(((F1[NTL1] =|= F2[NTL2]) & TCS)) = falseOutput
+        if equals(size(NTL1), size(NTL2)) = False .
+
+    eq unify(((FT =|= BT) & TCS)) = falseOutput .
+    eq unify(((FT =|= LT) & TCS)) = falseOutput .
+
+    eq unify(((BT =|= FT) & TCS)) = falseOutput .
+    eq unify(((BT =|= LT) & TCS)) = falseOutput .
+
+    eq unify(((LT =|= BT) & TCS)) = falseOutput .
+    eq unify(((LT =|= FT) & TCS)) = falseOutput .
+    eq unify(((qidC(cons)[T1, T2] =|= qidC(nilTerm)) & TCS)) = falseOutput .
+    eq unify(((qidC(nilTerm) =|= qidC(cons)[T1, T2]) & TCS)) = falseOutput .
+
+    ceq unify(((BT1 =|= BT2) & TCS)) = falseOutput
+        if equals(BT1, BT2) = False .
+
+    ceq unify(((VT1 =|= VT2) & TCS)) = unify((VT2 =|= VT1) & TCS)
+        if isLowerVar(VT2, VT1) = True .
+
+    eq unify(((BT =|= VT) & TCS)) = unify((VT =|= BT) & TCS) .
+    eq unify(((FT =|= VT) & TCS)) = unify((VT =|= FT) & TCS) .
+    eq unify(((LT =|= VT) & TCS)) = unify((VT =|= LT) & TCS) .
+
+    ---Rule 11
+    ceq unify(((VT =|= T) & TCS)) = unify(((VT =|= T) & applySub(TCS, (VT <- T))))
+        if occurs(VT, T) = False
+        /\ occursCS(VT, TCS) = True
+        /\ isLowerVar(VT, T) = True .
+
+    ---Rule 12
+    ceq unify(((VT =|= T) & TCS)) = falseOutput
+        if occurs(VT, T) = True .
+
+    ---Final unify equation, cannot execute any other term unification rule
+    ceq unify(TCS) = TCS
+        if fixPoint?(TCS, empty) = True .
+
+
+endfm
+
+fmod LP-UNIFICATION is
+    pr TYPE-TERM-UNIFICATION .
+    
+    sort SubstitutionPair .
+
+    op {_:_} : TermSubstitution? TypeSubstitution? -> SubstitutionPair [ ctor metadata "80" ] .
+    op null : -> SubstitutionPair [ ctor ] .
+
+    var TCS : TermConstraintSet .
+    var TYCS : TypeConstraintSet .
+
+    op unify : TermConstraintSet TypeConstraintSet -> SubstitutionPair [ metadata "9000" ] .
+    eq unify(TCS, TYCS) = { getSub(unify(TCS)) : getSub(unify(TYCS)) } .
+
+endfm
+set include BOOL on .

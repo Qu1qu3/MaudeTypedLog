@@ -1,0 +1,206 @@
+load lp-syntax.maude
+
+mod LP-SEMANTICS is
+  protecting LP-SYNTAX * (
+        sort String to LPString,
+        sort Char to LPChar,
+        sort TermList to LPTermList,
+        sort TypeList to LPTypeList,
+        sort Program to LPProgram
+        ) .
+
+  sort LPConfiguration .
+  op <_|_$_|_-_> : NatP PredicateList SubstitutionPair LPProgram LPProgram -> LPConfiguration .
+  op mtConf : -> LPConfiguration .
+
+
+  vars N N1 N2 : NatP .
+  ---vars N1 N2 : Nat .
+  vars P1 P2 P3 : Predicate .
+  vars PL PL1 PL2 PL3 : PredicateList .
+  vars PR1 PR2 PR CL : LPProgram .
+  vars SB SB1 SB2 : SubstitutionPair .
+  var TYSB? : TypeSubstitution? .
+  var TSB? : TermSubstitution? .
+  vars F Q : QidC .
+  var FL : Float .
+  var NTL : NeTermList .
+  var T : Term .
+
+  op getHead : Clause -> Predicate .
+  eq getHead(P3 :- PL3) = P3 .
+
+  op getTailPredicate : Clause -> PredicateList .
+  eq getTailPredicate(P3 :- PL3) = PL3 .
+
+    crl [clause] :
+        < N1 | P1 PL1 $ SB1 | PR1 ;; (P2 :- PL2) ;; PR2 - CL >
+        =>
+        < max(N1, last$(rename(P2 :- PL2, N1)))
+            | getTailPredicate(rename(P2 :- PL2, N1)) PL1
+            $ {TS2? ; getTermSub(SB1) : TYS2?}
+            | PR1 ;; (P2 :- PL2) ;; PR2 - CL ;; P2 :- PL2 >
+        if
+            {TS2? : TYS2?} := unify(P1, getHead(rename(P2 :- PL2, N1)), SB1, last$(P1 getHead(rename(P2 :- PL2, N1))))
+            /\ (TS2? =/= falseSub) = true
+            /\ (TYS2? =/= wrongType) = true
+            /\ P1 =/= falsePredicate /\ P1 =/= wrongPredicate
+            .
+
+    crl [clause_false] :
+        < N1 | P1 PL1 $ SB1 | PR1 ;; (P2 :- PL2) ;; PR2 - CL >
+        =>
+        < max(N1, last$(rename(P2 :- PL2, N1)))
+            | PL1 falsePredicate P1 P2
+            $ {getTermSub(SB1) : TYS2?}
+            | PR1 ;; (P2 :- PL2) ;; PR2 - CL ;; P2 :- PL2 >
+        if
+            {TS2? : TYS2?} := unify(P1, getHead(rename(P2 :- PL2, N1)), SB1, last$(P1 getHead(rename(P2 :- PL2, N1))))
+            /\ (TS2? == falseSub) = true
+            /\ (TYS2? =/= wrongType) = true
+            /\ P1 =/= wrongPredicate
+            /\ P1 =/= falsePredicate
+            .
+
+    crl [clause_wrong] :
+        < N1 | P1 PL1 $ SB1 | PR1 ;; (P2 :- PL2) ;; PR2 - CL >
+        =>
+        < max(N1, last$(rename(P2 :- PL2, N1)))
+            | wrongPredicate P1 P2
+            $ {getTermSub(SB1) : TYS2?}
+            | PR1 ;; (P2 :- PL2) ;; PR2 - CL ;; P2 :- PL2 >
+        if
+            {TS2? : TYS2?} := unify(P1, getHead(rename(P2 :- PL2, N1)), SB1, last$(P1 getHead(rename(P2 :- PL2, N1))))
+            /\ (TYS2? == wrongType) = true
+            .
+
+
+
+
+  op rename : Clause NatP -> Clause .
+  eq rename(P1 :- PL1,N2) = rename(P1,N2) :- rename(PL1,N2) .
+  op rename : PredicateList NatP -> PredicateList .
+  eq rename((nil).PredicateList,N2) = nil .
+  eq rename((P1 PL1),N2) = rename$(P1,N2) rename(PL1,N2) .
+  op rename$ : Predicate NatP -> Predicate .
+  eq rename$(F{NTL},N2) = F{rename$$(NTL,N2)} .
+  eq rename$(falsePredicate,N2) = falsePredicate .
+
+  op rename$$ : NeTermList NatP -> NeTermList .
+  eq rename$$((T,NTL),N2) = rename$$(T,N2),rename$$(NTL,N2) .
+  eq rename$$(x{N1},N2) = x{N1 + N2} .
+  eq rename$$(F,N2) = F .
+  eq rename$$(N1,N2) = N1 .
+  eq rename$$(fl(FL),N2) = fl(FL) .
+  eq rename$$(F[NTL],N2) = F[rename$$(NTL,N2)] .
+
+  op last : LPProgram -> NatP .
+  eq last(mt) = 0 .
+  eq last(CL ;; PR) = max(last$(CL), last(PR)) .
+  op last$ : Clause -> NatP .
+  eq last$(P1 :- PL1) = last$(P1 PL1) .
+  op last$ : PredicateList -> NatP .
+  eq last$((nil).PredicateList) = 0 .
+  eq last$(P1 PL1) = max(last$$(P1),last$(PL1)) .
+  op last$$ : Predicate -> NatP .
+  eq last$$(falsePredicate) = 0 .
+  eq last$$(F{NTL}) = last$$$(NTL) .
+  op last$$$ : NeTermList -> NatP .
+  eq last$$$((T,NTL)) = max(last$$$(T),last$$$(NTL)) .
+  eq last$$$(x{N1}) = N1 .
+  eq last$$$(F) = 0 .
+  eq last$$$(F[NTL]) = last$$$(NTL) .
+
+  eq last$$$(N) = 0 .
+
+  op <_|_> : PredicateList LPProgram -> LPConfiguration .
+  eq < PL | PR > = < s(max(last$(PL), last(PR))) | PL $ null | PR - mt > .
+
+  op getTermSub : SubstitutionPair -> TermSubstitution .
+  eq getTermSub({TS : TYS}) = TS .
+  eq getTermSub({noneT : TYS}) = noneT .
+  eq getTermSub(null) = noneT .
+
+  op getTypeSub : SubstitutionPair -> TypeSubstitution .
+  eq getTypeSub({TS : TYS}) = TYS .
+
+    op ex1 : -> LPProgram .
+    eq ex1 =
+        (qidC(p){s(0)} :- nil) ;;
+        (qidC(p){0} :- nil) ;;
+        (qidC(q){s(0)} :- nil) ;;
+        (qidC(q){qidC(a)} :- nil) ;;
+        (qidC(r){x{0}} :- (qidC(p){x{0}}) (qidC(q){x{0}})) .
+
+    op ex2 : -> LPProgram .
+    eq ex2 =
+        (qidC(p){s(0)} :- nil) ;;
+        (qidC(q){qidC(a)} :- nil) ;;
+        (qidC(q){x{0}} :- (qidC(p){qidC(a)})) .
+
+    op ex3 : -> LPProgram .
+    eq ex3 =
+        (qidC(p){s(0)} :- nil) ;;
+        (qidC(p){s(s(0))} :- nil) ;;
+        (qidC(q){s(0)} :- nil) ;;
+        (qidC(q){qidC(a)} :- nil) ;;
+        (qidC(r){x{0}} :- (qidC(p){x{0}}) (qidC(q){x{0}})) .
+
+    op ex4 : -> LPProgram .
+    eq ex4 =
+        (qidC(p){s(0)} :- nil) ;;
+        (qidC(q){qidC(a)} :- nil) ;;
+        (qidC(q){x{0}} :- (qidC(p){x{0}})) .
+
+    op ex5 : -> LPProgram .
+    eq ex5 =
+        (qidC(p){s(0)} :- nil) ;;
+        (qidC(q){qidC(a)} :- nil) ;;
+        (qidC(q){x{0}} :- (qidC(p){qidC(a)})) ;;
+        (qidC(q){x{0}} :- (qidC(p){qidC(b)})) .
+    
+    op exAppend : -> LPProgram .
+    eq exAppend =
+        (qidC(append){qidC(nilTerm), x{0}, x{0}} :- nil ) ;;
+        (qidC(append){qidC(cons)[x{s(0)}, x{s(s(0))}], x{s(s(s(0)))}, qidC(cons)[x{s(0)}, x{s(s(s(s(0))))}]} :- (qidC(append){x{s(s(0))}, x{s(s(s(0)))}, x{s(s(s(s(0))))}}) ) .
+
+    op exMember : -> LPProgram .
+    eq exMember =
+        (qidC(member){x{0} , qidC(cons)[x{0} , x{s(0)}]} :- nil) ;;
+        (qidC(member){x{s(s(0))} , qidC(cons)[x{s(s(s(0)))} , x{s(s(s(s(0))))}]} :-
+            (qidC(noteq){x{s(s(0))} , x{s(s(s(0)))}}) (qidC(member){x{s(s(0))}, x{s(s(s(s(0))))}}) ) ;;
+        (qidC(noteq){x{s(s(s(s(s(0)))))}, x{s(s(s(s(s(0)))))}} :- falsePredicate) .
+
+    op exList : -> LPProgram .
+    eq exList =
+        (qidC(sumlist){x{0}, x{s(0)}} :- qidC(sumlist){x{0}, 0, x{s(0)}}) ;;
+        (qidC(sumlist){qidC(nilTerm) , x{s(s(0))}, x{s(s(0))}} :- nil) ;;
+        (qidC(sumlist){qidC(cons)[x{s(s(s(0)))}, x{s(s(s(s(0))))}], x{s(s(s(s(s(0)))))}, x{s(s(s(s(s(s(0))))))}} :- (qidC(is){x{s(s(s(s(s(s(s(0)))))))}, qidC(plus)[x{s(s(s(0)))},x{s(s(s(s(s(0)))))}]}) (qidC(sumlist){x{s(s(s(s(0))))}, x{s(s(s(s(s(s(s(0)))))))}, x{s(s(s(s(s(s(0))))))}})) .
+
+    op exMax : -> LPProgram .
+    eq exMax =
+        (qidC(max){qidC(nilTerm),x{0},x{0}} :- nil) ;; 
+        (qidC(max){qidC(cons)[x{s(0)}, x{s(s(0))}],x{s(s(s(0)))},x{s(s(s(s(0))))}} :- (qidC(less){x{s(s(s(0)))}, x{s(0)}}) (qidC(max){x{s(s(0))}, x{s(0)}, x{s(s(s(s(0))))}})) ;;
+        (qidC(max){qidC(cons)[x{s(0)}, x{s(s(0))}],x{s(s(s(0)))},x{s(s(s(s(0))))}} :- (qidC(less){x{s(0)}, x{s(s(s(0)))}}) (qidC(max){x{s(s(0))}, x{s(s(s(0)))}, x{s(s(s(s(0))))}})) .
+
+    vars TYS1? TYS2? : TypeSubstitution? .
+    vars TYS TYS1 TYS2 : TypeSubstitution .
+    vars TY TY1 TY2 : Type .
+    vars NTYL NTYL1 NTYL2 : NeTypeList .
+
+
+    vars TS1? TS2? : TermSubstitution? .
+    vars TS TS1 TS2 : TermSubstitution .
+    vars NTL1 NTL2 : NeTermList .
+    vars T1 T2 T3 T4 : Term .
+
+  op unify : Predicate Predicate SubstitutionPair NatP -> SubstitutionPair .
+  eq unify(F{NTL1}, F{NTL2}, SB, N) =
+        unify(
+            F[applySub(NTL1, getTermSub(SB))] =|= F[applySub(NTL2, getTermSub(SB))],
+            generate(
+                F[applySub(NTL1, getTermSub(SB))] =|= F[applySub(NTL2, getTermSub(SB))],
+                s(N))
+        ) .
+
+endm

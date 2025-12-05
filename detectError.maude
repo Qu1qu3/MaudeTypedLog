@@ -1,0 +1,205 @@
+load file.maude
+load lp-semantics.maude
+
+mod DETECT-ERROR-SIGNATURE is
+    protecting LP-SEMANTICS * (
+        sort Configuration to LPConfiguration,
+        sort String to LPString,
+        sort Char to LPChar,
+        sort Type to LPType,
+        sort Term to LPTerm,
+        sort NeTermList to LPNeTermList,
+        sort TermList to LPTermList,
+        sort NeTypeList to LPNeTypeList,
+        sort TypeList to LPTypeList,
+        sort Program to LPProgram,
+        sort Float to LPFloat
+        ) .
+
+    sorts QueryPair QueryPairList .
+    subsort QueryPair < QueryPairList .
+    op qp(_|_) : PredicateList LPProgram -> QueryPair [ctor] .
+    op nqp : -> QueryPair [ctor] .
+    op outBoundsQP : -> QueryPair [ctor] .
+    op __ : QueryPairList QueryPairList -> QueryPairList [ctor assoc id: nqp] .
+
+    op getQueryPair : LPConfiguration -> QueryPair .
+    eq getQueryPair(< N | PL $ SP | LP1 - LP2 >) = qp(PL | LP2) .
+    eq getQueryPair(mtConf) = nqp .
+
+
+    var N : NatP .
+    vars PL Output : PredicateList .
+    var PR : Predicate .
+    var SP : SubstitutionPair .
+    vars LP1 LP2 : LPProgram .
+    var C : Clause .
+
+    sort GenericQuery GenericQueryList .
+    subsort GenericQuery < GenericQueryList .
+    op none : -> GenericQuery [ctor] .
+    op GQ : Clause Predicate -> GenericQuery [ctor] .
+    op _--_ : GenericQueryList GenericQueryList -> GenericQueryList [ctor id: none] .
+    op getQuery : GenericQuery -> Predicate .
+    eq getQuery(GQ(C, PR)) = PR .
+
+    sorts TripleQuery TripleQueryList .
+    subsort TripleQuery < TripleQueryList .
+    op nonetql : -> TripleQueryList [ctor] .
+    op {_,_} : GenericQuery QueryPairList -> TripleQuery [ctor] .
+    op __ : TripleQueryList TripleQueryList -> TripleQueryList [ctor assoc id: nonetql] .
+
+endm
+
+
+mod DETECT-ERROR is
+    protecting DETECT-ERROR-SIGNATURE .
+    protecting META-LEVEL .
+
+
+    vars G GQ1 GQ2 : GenericQuery .
+    var GL : GenericQueryList .
+    vars P CLi : LPProgram .
+    var PR PR1 PR2 : Predicate .
+    vars PRL PL : PredicateList .
+    var CL : Clause .
+    var Q : QidC .
+    var NeTL NeTL1 NeTL2 NeTL3 : LPNeTermList .
+    var TL : LPTermList .
+    var T : LPTerm .
+    vars N N1 : NatP .
+    var SB : SubstitutionPair .
+    vars Count Depth : Nat .
+    var TQ : TripleQuery .
+    var TQL : TripleQueryList .
+    vars QP1 QP2 : QueryPair .
+    var QPL : QueryPairList .
+    var B : Boolean .
+
+    op hasTypeError : LPProgram -> LPProgram .
+    eq hasTypeError(P) =
+        detectCLError(
+            tripleQueryList(
+                generateGenericQueries(P),
+                P
+            )) .
+
+
+    op generateGenericQueries : LPProgram -> GenericQuery .
+    eq generateGenericQueries(mt) = none .
+    eq generateGenericQueries(((PR :- PRL) ;; P))
+        = (generateGenericQuery(PR :- PRL) -- generateGenericQueries(P)) .
+
+    --- Avoids adding duplicate genericQueries
+    --- ceq generateGenericQueries(((PR :- PRL) ;; P))
+    ---     = (generateGenericQuery(PR :- PRL) -- generateGenericQueries(P))
+    ---     if samePredicate(PR, P) == False .
+    --- ceq generateGenericQueries(((PR :- PRL) ;; P))
+    ---     = (generateGenericQueries(P))
+    ---     if samePredicate(PR, P) == True .
+
+
+
+    --- Returns a generic query for clause (PR :- PRL)
+    op generateGenericQuery : Clause -> GenericQuery .
+    eq generateGenericQuery((PR :- PRL))
+        = GQ(PR :- PRL, genericHead(PR)) .
+
+    --- Takes the head of the Predicate for the GenericQuery
+    op genericHead : Predicate -> Predicate .
+    eq genericHead((Q{NeTL}))
+        = Q{genericParameters(NeTL, s(s(s(s(s(s(s(s(s(s(0)))))))))))} .
+    
+    --- Adds the variables needed for the Predicate, the GenericQuery must contain the same amount of parameters
+    op genericParameters : LPNeTermList NatP -> LPNeTermList .
+    eq genericParameters(empty, N) = empty .
+    eq genericParameters(T, N) = x{N} .
+    eq genericParameters((T, NeTL), N) = x{N}, genericParameters(NeTL, s(N)) .
+
+
+    ---take a list of GenericQueries and operate the search of each of them
+    op tripleQueryList : GenericQueryList LPProgram -> TripleQueryList .
+    eq tripleQueryList(GQ1, P)
+        = runAllGenericQueries(GQ1, P) .
+    eq tripleQueryList(GQ1 -- GL, P)
+        = runAllGenericQueries(GQ1, P)
+        tripleQueryList(GL, P) .
+
+
+    op runAllGenericQueries : GenericQuery LPProgram -> TripleQueryList .
+    eq runAllGenericQueries(GQ1, P) =
+        {
+            GQ1,
+            executeSearch(getQuery(GQ1), P, 0, 30)
+        } [owise] .
+
+    op executeSearch : Predicate LPProgram Nat Nat -> QueryPair .
+    ---if the term is mtConf, there is an error parsing, so there are no more solutions
+    ceq executeSearch(PR, P, Count, Depth) =
+        (getQueryPair(
+            downTerm(
+                getTerm(
+                    metaSearch(
+                        upModule('DETECT-ERROR, false),
+                        upTerm(< PR | P >),
+                        ('<_|_$_|_-_>['N1:NatP, 'PL:PredicateList, 'SB:SubstitutionPair, 'P:LPProgram, 'CLi:LPProgram]),
+                        nil,
+                        '!,
+                        Depth,
+                        --- unbounded,
+                        Count)),
+                (mtConf).LPConfiguration)
+        )) if (downTerm(getTerm(
+                    metaSearch(
+                        upModule('DETECT-ERROR, false),
+                        upTerm(< PR | P >),
+                        ('<_|_$_|_-_>['N1:NatP, 'PL:PredicateList, 'SB:SubstitutionPair, 'P:LPProgram, 'CLi:LPProgram]),
+                        nil,
+                        '!,
+                        Depth,
+                        --- unbounded,
+                        Count)
+                ), (mtConf).LPConfiguration)
+                    == ((mtConf).LPConfiguration)) .
+    eq executeSearch(PR, P, Count, 0) =
+        qp(timeExceedPredicate | mt) .
+
+    eq executeSearch(PR, P, Count, Depth) =
+        (getQueryPair(
+            downTerm(
+                getTerm(
+                    metaSearch(
+                        upModule('DETECT-ERROR, false),
+                        upTerm(< PR | P >),
+                        ('<_|_$_|_-_>['N1:NatP, 'PL:PredicateList, 'SB:SubstitutionPair, 'P:LPProgram, 'CLi:LPProgram]),
+                        nil,
+                        '!,
+                        Depth,
+                        --- unbounded,
+                        Count)),
+                (mtConf).LPConfiguration)
+        ))
+        executeSearch(PR, P, (Count + 1), sd(Depth, 1))
+        [owise] .
+
+
+    op detectCLError : TripleQueryList -> LPProgram .
+    eq detectCLError(nonetql) = mt [print "detect"] .
+    eq detectCLError(TQ TQL) = clauseError(TQ) ;; detectCLError(TQL) [print "detectList "] .
+
+
+    op clauseError : TripleQuery -> LPProgram .
+    eq clauseError({GQ(CL, PR1), nqp}) = CL [print "\nEmpty case"] .
+    eq clauseError({GQ(CL, PR1), (QPL (qp(timeExceedPredicate | P)))}) = outOfBounds [print "outBounds: " QPL].
+    ceq clauseError({GQ(CL, PR1), (qp(PRL | P) QPL)}) =
+            (clauseError({GQ(CL, PR1), QPL}))
+        if (
+            (((CL in P) And (wrongPredicate in PRL)) Or (CL notIn P)) == True
+        ) [print "\nGeneric case\nCL: " CL "\nPRL(output): " PRL "\nP(path): " P ] .
+    ceq clauseError({GQ(CL, PR1), (qp(PRL | P) QPL)}) =
+            mt
+        if (
+            (((CL in P) And (wrongPredicate in PRL)) Or (CL notIn P)) == False
+        ) [print "\nGeneric case\nCL: " CL "\nPRL(output): " PRL "\nP(path): " P ] .
+
+endm

@@ -1,0 +1,76 @@
+load unification.maude
+
+fmod PREDICATE is
+  including LP-UNIFICATION .
+  sort Predicate .
+  op _{_} : QidC NeTermList -> Predicate [ctor] .
+  op falsePredicate : -> Predicate [ctor] .
+  op wrongPredicate : -> Predicate [ctor] .
+  op timeExceedPredicate : -> Predicate [ctor] .
+endfm
+
+fmod CLAUSE is
+  protecting PREDICATE .
+  sort PredicateList .
+  subsort Predicate < PredicateList .
+  op trueResult : -> Predicate [ctor] .
+  op nil : -> PredicateList [ctor] .
+  op __ : PredicateList PredicateList -> PredicateList [assoc id: nil] .
+  vars PR PR1 PR2 : Predicate .
+  vars PRL PRL1 PRL2 : PredicateList .
+  op _in_ : Predicate PredicateList -> Boolean .
+  eq PR in nil = False .
+  eq PR1 in (PR1 PRL) = True .
+  eq PR1 in (PR2 PRL) = (PR1 in PRL) .
+  op _notIn_ : Predicate PredicateList -> Boolean .
+  eq PR notIn nil = True .
+  eq PR1 notIn (PR1 PRL) = False .
+  eq PR1 notIn (PR2 PRL) = (PR1 notIn PRL) .
+
+  op equals : Predicate Predicate -> Boolean [comm] .
+  eq equals(PR, nil) = False .
+  eq equals(PR, PR) = True .
+  eq equals(PR1, PR2) = False [owise] .
+
+  vars Q1 Q2 : QidC .
+  vars NeTL1 NeTL2 : NeTermList .
+  op sameF : Clause Clause -> Boolean [comm] .
+  eq sameF((Q1{NeTL1} :- PRL1), (Q2{NeTL2} :- PRL2)) = equals(Q1, Q2) .
+
+
+
+  sort Clause .
+  op _:-_ : Predicate PredicateList -> Clause [ctor] .
+
+  sort Program .
+  subsort Clause < Program .
+  op mt : -> Program [ctor] .
+  op outOfBounds : -> Program [ctor] .
+  op _;;_ : Program Program -> Program [assoc id: mt] .
+  eq (outOfBounds ;; outOfBounds) = outOfBounds .
+  vars CL CL1 CL2 : Clause .
+  var PRG : Program .
+  op _in_ : Clause Program -> Boolean .
+  eq CL in mt = False .
+  eq CL1 in (CL1 ;; PRG) = True .
+  eq CL1 in (CL2 ;; PRG) = (CL1 in PRG) .
+  op _notIn_ : Clause Program -> Boolean .
+  eq CL notIn mt = True .
+  eq CL1 notIn (CL1 ;; PRG) = False .
+  eq CL1 notIn (CL2 ;; PRG) = (CL1 notIn PRG) .
+  op getHeads : Program -> PredicateList .
+  eq getHeads(mt) = nil .
+  eq getHeads((PR :- PRL)) = PR .
+  eq getHeads((PR :- PRL) ;; PRG) = PR (getHeads(PRG)) .
+
+  op samePredicate : Predicate Program -> Boolean .
+  eq samePredicate(PR, mt) = False .
+  eq samePredicate(PR, (PR :- PRL)) = True .
+  eq samePredicate(PR, (CL1 ;; PRG)) = sameF((PR :- nil), CL1) Or samePredicate(PR, PRG) .
+endfm
+
+fmod LP-SYNTAX is
+  including LP-UNIFICATION .
+  protecting PREDICATE .
+  protecting CLAUSE .
+endfm
