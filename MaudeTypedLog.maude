@@ -10,6 +10,21 @@ mod MTL-STRAT is
     var T : Term .
     var N : Nat .
     var NP : NatP .
+    vars CL CL1 CL2 : Clause .
+    var PR : LPProgram .
+    vars P P1 P2 : Predicate .
+
+    --- Checks appending
+    op removeDuplicatesProgram : LPProgram -> LPProgram .
+    eq removeDuplicatesProgram(mt) = mt .
+    eq removeDuplicatesProgram((CL ;; PR)) =
+        checkPredicateDuplicateInProgram(CL, PR) ;; removeDuplicatesProgram(PR) .
+
+    op checkPredicateDuplicateInProgram : Clause LPProgram -> Clause .
+    eq checkPredicateDuplicateInProgram(CL, mt) = CL . --- return CL
+    eq checkPredicateDuplicateInProgram(CL, (CL ;; PR)) = mt . --- returns empty because the clause appears appears
+    eq checkPredicateDuplicateInProgram(CL, (CL1 ;; PR)) = checkPredicateDuplicateInProgram(CL, PR) .
+
 
     op takeProgram : Nat -> LPProgram .
     eq takeProgram(1) = ex1 .
@@ -83,7 +98,9 @@ mod MTL-GRAMMAR is
 
     op list programs : -> Action .
     op load program_ : Nat -> Action .
+    op append program_ : Nat -> Action .
     op check : -> Action .
+    --- op check predicate_ : PredicateInput -> Action .
     op show predicates : -> Action .
     op show program : -> Action .
     op help : -> Action .
@@ -352,13 +369,14 @@ omod MTL-IO is
     eq printHelp = "Available commands:\n"
         + GREEN + "\tPROGRAM FUNCTIONS\n"
         + CYAN + "\tlist programs       " + WHITE + "- Lists all the predefined programs.\n"
-        + CYAN + "\tload program <N>    " + WHITE + "- Loads preloaded program N (1-8).\n"
+        + CYAN + "\tload program <N>    " + WHITE + "- Loads preloaded program N (1-8). Overwrites any preloaded program.\n"
+        + CYAN + "\tappend program <N>    " + WHITE + "- Appends a preloaded program N (1-8).\n"
         + CYAN + "\tcheck               " + WHITE + "- Types check the current loaded program.\n"
         + CYAN + "\tquery               " + WHITE + "- Executes a query in the loaded program.\n"
         + GREEN + "\n\tSHOW FUNCTIONS\n"
         + CYAN + "\tshow program        " + WHITE + "- Shows the current loaded program.\n"
         + CYAN + "\tshow predicates     " + WHITE + "- Shows the predicates used in the clauses of the current program.\n"
-        + CYAN + "\tquit                " + WHITE + "- Exits the interpreter.\n"
+        + CYAN + "\tquit                " + WHITE + "- Ends the execution of the tool.\n"
         + BW .
 
     op natPToString : NatP Nat -> String .
@@ -374,9 +392,13 @@ omod MTL-IO is
     => < O : VM | action : idle, program : P >
     write(stdout, O, printListPrograms + "\n") .
 
+    rl < O : VM | action : append program N, program : P >
+    => < O : VM | action : idle, program : removeDuplicatesProgram(P ;; takeProgram(N)) >
+    write(stdout, O, "Added program " + string(N, 10) + " to memory\n") .
+
     rl < O : VM | action : load program N, program : P >
     => < O : VM | action : idle, program : takeProgram(N) >
-    write(stdout, O, "Loaded program " + string(N, 10) + "\n") .
+    write(stdout, O, "Loaded program " + string(N, 10) + " to memory\n") .
 
 
     rl < O : VM | action : check, program : P >
@@ -452,5 +474,11 @@ omod MTL-IO is
 endom
 
 erewrite in MTL-IO : interpret .
+
+--- Programs ex1 and ex2
+--- red (checkAppend(ex1 ;; ex2) == ((qidC(p){0} :- nil) ;; (qidC(q){s(0)} :- nil) ;; (qidC(
+---     r){x{0}} :- (qidC(p){x{0}}) qidC(q){x{0}}) ;; (qidC(p){s(0)} :- nil) ;;
+---a     (qidC(q){qidC(a)} :- nil) ;; qidC(q){x{0}} :- qidC(p){qidC(a)})) .
+
 
 quit
