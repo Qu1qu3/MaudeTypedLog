@@ -1,0 +1,56 @@
+fmod LP-LIST{X :: TRIV} is
+  protecting BOOLEAN .
+  protecting NAT-PEANO .
+  sorts NeList{X} List{X} .
+  subsort X$Elt < NeList{X} < List{X} .
+
+  op nilList : -> List{X} [ctor] .
+  op __ : List{X} List{X} -> List{X} [ctor assoc id: nilList prec 25] .
+  op __ : NeList{X} List{X} -> NeList{X} [ctor ditto] .
+  op __ : List{X} NeList{X} -> NeList{X} [ctor ditto] .
+
+  var E E' : X$Elt .
+  vars A L : List{X} .
+  var C : NatP .
+
+  op append : List{X} List{X} -> List{X} .
+  op append : NeList{X} List{X} -> NeList{X} .
+  op append : List{X} NeList{X} -> NeList{X} .
+  eq append(A, L) = A L .
+
+  op head : NeList{X} -> X$Elt .
+  eq head(E L) = E .
+
+  op tail : NeList{X} -> List{X} .
+  eq tail(E L) = L .
+
+  op last : NeList{X} -> X$Elt .
+  eq last(L E) = E .
+
+  op front : NeList{X} -> List{X} .
+  eq front(L E) = L .
+
+  op occursList : X$Elt List{X} -> Boolean .
+  eq occursList(E, nilList) = False .
+  eq occursList(E, E' L) = if E == E' then True else occursList(E, L) fi .
+
+  op reverse : List{X} -> List{X} .
+  op reverse : NeList{X} -> NeList{X} .
+  eq reverse(L) = $reverse(L, nilList) .
+
+  op $reverse : List{X} List{X} -> List{X} .
+  eq $reverse(nilList, A) = A .
+  eq $reverse(E L, A) = $reverse(L, E A).
+
+  op sizeList : List{X} -> NatP .
+  op sizeList : NeList{X} -> NzNatP .
+  eq sizeList(L) = $size(L, 0) .
+
+  op $size : List{X} NatP -> NatP .
+  eq $size(nilList, C) = C .
+  eq $size(E L, C) = $size(L, s(C)) .
+endfm
+
+view LP-List{X :: TRIV} from TRIV to LIST{X} is
+  sort Elt to List{X} .
+endv

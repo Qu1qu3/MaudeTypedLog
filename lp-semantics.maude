@@ -1,16 +1,13 @@
 load lp-syntax.maude
 
 mod LP-SEMANTICS is
-  protecting LP-SYNTAX * (
-        sort String to LPString,
-        sort Char to LPChar,
-        sort TermList to LPTermList,
-        sort TypeList to LPTypeList,
-        sort Program to LPProgram
-        ) .
+    pr LP-LIST{VarTermView} * (sort NeList{VarTermView} to NeLVars,
+                                sort List{VarTermView} to LVars,
+                                op nilList to nilVars) .
+
 
   sort LPConfiguration .
-  op <_|_$_|_-_> : NatP PredicateList SubstitutionPair LPProgram LPProgram -> LPConfiguration .
+  op <_|_$_#_|_-_> : NatP PredicateList SubstitutionPair LVars LPProgram LPProgram -> LPConfiguration .
   op mtConf : -> LPConfiguration .
 
 
@@ -26,6 +23,30 @@ mod LP-SEMANTICS is
   var FL : Float .
   var NTL : NeTermList .
   var T : Term .
+  var VS : LVars .
+  var VT : VarTerm .
+
+--- Takes variables frmo initial query
+  op subsimple : TermSubstitution? LVars -> TermSubstitution? .
+  eq subsimple(falseSub, VS) = falseSub [print "1-\nVariable in list: empty\n\tTSB: FALSE \n\tVS: " VS] .
+  eq subsimple(noneT, VS) = noneT [print "2-\nVariable in list: empty\n\tTSB: NONET\n\tVS: " VS] .
+  ceq subsimple(((VT <- T) ; TSB?), VS) = (VT <- applySub(T, TSB?)) ; subsimple(TSB?, VS)
+    if (occursList(VT, VS) == True) [print "3-\nVariable in list: " VT " <- " T "\n\tTSB: " TSB? "\n\tVS: " VS] .
+
+  eq subsimple(((VT <- T) ; TSB?), VS) = subsimple(TSB?, VS) [print "4-\nVariable not in list: " VT " <- " T "\n\tTSB: " TSB? "\n\tVS: " VS] . --- if (not (occursList(VT, VS))) . ---it must be the first to be executed
+
+
+  op getVS : PredicateList -> LVars .
+  eq getVS(nilPL) = nilVars .
+  eq getVS(F{NTL}) = getVS$$$(NTL) .
+  op getVS$$$ : NeTermList -> LVars .
+  eq getVS$$$(T) = getVS$(T) .
+  eq getVS$$$((T,NTL)) = getVS$(T) getVS$$$(NTL) .
+  op getVS$ : Term -> LVars .
+  eq getVS$(x{N}) = x{N} .
+  eq getVS$(F[NTL]) = getVS$$$(NTL) .
+  eq getVS$(F) = nilVars .
+  eq getVS$(N) = nilVars .
 
   op getHead : Clause -> Predicate .
   eq getHead(P3 :- PL3) = P3 .
@@ -34,11 +55,12 @@ mod LP-SEMANTICS is
   eq getTailPredicate(P3 :- PL3) = PL3 .
 
     crl [clause] :
-        < N1 | P1 PL1 $ SB1 | PR1 ;; (P2 :- PL2) ;; PR2 - CL >
+        < N1 | P1 PL1 $ SB1 # VS | PR1 ;; (P2 :- PL2) ;; PR2 - CL >
         =>
         < max(N1, last$(rename(P2 :- PL2, N1)))
             | getTailPredicate(rename(P2 :- PL2, N1)) PL1
             $ {TS2? ; getTermSub(SB1) : TYS2?}
+            # VS
             | PR1 ;; (P2 :- PL2) ;; PR2 - CL ;; P2 :- PL2 >
         if
             {TS2? : TYS2?} := unify(P1, getHead(rename(P2 :- PL2, N1)), SB1, last$(P1 getHead(rename(P2 :- PL2, N1))))
@@ -48,11 +70,12 @@ mod LP-SEMANTICS is
             .
 
     crl [clause_false] :
-        < N1 | P1 PL1 $ SB1 | PR1 ;; (P2 :- PL2) ;; PR2 - CL >
+        < N1 | P1 PL1 $ SB1 # VS | PR1 ;; (P2 :- PL2) ;; PR2 - CL >
         =>
         < max(N1, last$(rename(P2 :- PL2, N1)))
             | PL1 falsePredicate P1 P2
             $ {getTermSub(SB1) : TYS2?}
+            # VS
             | PR1 ;; (P2 :- PL2) ;; PR2 - CL ;; P2 :- PL2 >
         if
             {TS2? : TYS2?} := unify(P1, getHead(rename(P2 :- PL2, N1)), SB1, last$(P1 getHead(rename(P2 :- PL2, N1))))
@@ -63,11 +86,12 @@ mod LP-SEMANTICS is
             .
 
     crl [clause_wrong] :
-        < N1 | P1 PL1 $ SB1 | PR1 ;; (P2 :- PL2) ;; PR2 - CL >
+        < N1 | P1 PL1 $ SB1 # VS | PR1 ;; (P2 :- PL2) ;; PR2 - CL >
         =>
         < max(N1, last$(rename(P2 :- PL2, N1)))
             | wrongPredicate P1 P2
             $ {getTermSub(SB1) : TYS2?}
+            # VS
             | PR1 ;; (P2 :- PL2) ;; PR2 - CL ;; P2 :- PL2 >
         if
             {TS2? : TYS2?} := unify(P1, getHead(rename(P2 :- PL2, N1)), SB1, last$(P1 getHead(rename(P2 :- PL2, N1))))
@@ -80,7 +104,7 @@ mod LP-SEMANTICS is
   op rename : Clause NatP -> Clause .
   eq rename(P1 :- PL1,N2) = rename(P1,N2) :- rename(PL1,N2) .
   op rename : PredicateList NatP -> PredicateList .
-  eq rename((nil).PredicateList,N2) = nil .
+  eq rename(nilPL,N2) = nilPL .
   eq rename((P1 PL1),N2) = rename$(P1,N2) rename(PL1,N2) .
   op rename$ : Predicate NatP -> Predicate .
   eq rename$(F{NTL},N2) = F{rename$$(NTL,N2)} .
@@ -100,7 +124,7 @@ mod LP-SEMANTICS is
   op last$ : Clause -> NatP .
   eq last$(P1 :- PL1) = last$(P1 PL1) .
   op last$ : PredicateList -> NatP .
-  eq last$((nil).PredicateList) = 0 .
+  eq last$(nilPL) = 0 .
   eq last$(P1 PL1) = max(last$$(P1),last$(PL1)) .
   op last$$ : Predicate -> NatP .
   eq last$$(falsePredicate) = 0 .
@@ -114,7 +138,7 @@ mod LP-SEMANTICS is
   eq last$$$(N) = 0 .
 
   op <_|_> : PredicateList LPProgram -> LPConfiguration .
-  eq < PL | PR > = < s(max(last$(PL), last(PR))) | PL $ null | PR - mt > .
+  eq < PL | PR > = < s(max(last$(PL), last(PR))) | PL $ null # getVS(PL) | PR - mt > .
 
   op getTermSub : SubstitutionPair -> TermSubstitution .
   eq getTermSub({TS : TYS}) = TS .
@@ -126,47 +150,47 @@ mod LP-SEMANTICS is
 
     op ex1 : -> LPProgram .
     eq ex1 =
-        (qidC(p){s(0)} :- nil) ;;
-        (qidC(p){0} :- nil) ;;
-        (qidC(q){s(0)} :- nil) ;;
-        (qidC(q){qidC(a)} :- nil) ;;
+        (qidC(p){s(0)} :- nilPL) ;;
+        (qidC(p){0} :- nilPL) ;;
+        (qidC(q){s(0)} :- nilPL) ;;
+        (qidC(q){qidC(a)} :- nilPL) ;;
         (qidC(r){x{0}} :- (qidC(p){x{0}}) (qidC(q){x{0}})) .
 
     op ex2 : -> LPProgram .
     eq ex2 =
-        (qidC(p){s(0)} :- nil) ;;
-        (qidC(q){qidC(a)} :- nil) ;;
+        (qidC(p){s(0)} :- nilPL) ;;
+        (qidC(q){qidC(a)} :- nilPL) ;;
         (qidC(q){x{0}} :- (qidC(p){qidC(a)})) .
 
     op ex3 : -> LPProgram .
     eq ex3 =
-        (qidC(p){s(0)} :- nil) ;;
-        (qidC(p){s(s(0))} :- nil) ;;
-        (qidC(q){s(0)} :- nil) ;;
-        (qidC(q){qidC(a)} :- nil) ;;
+        (qidC(p){s(0)} :- nilPL) ;;
+        (qidC(p){s(s(0))} :- nilPL) ;;
+        (qidC(q){s(0)} :- nilPL) ;;
+        (qidC(q){qidC(a)} :- nilPL) ;;
         (qidC(r){x{0}} :- (qidC(p){x{0}}) (qidC(q){x{0}})) .
 
     op ex4 : -> LPProgram .
     eq ex4 =
-        (qidC(p){s(0)} :- nil) ;;
-        (qidC(q){qidC(a)} :- nil) ;;
+        (qidC(p){s(0)} :- nilPL) ;;
+        (qidC(q){qidC(a)} :- nilPL) ;;
         (qidC(q){x{0}} :- (qidC(p){x{0}})) .
 
     op ex5 : -> LPProgram .
     eq ex5 =
-        (qidC(p){s(0)} :- nil) ;;
-        (qidC(q){qidC(a)} :- nil) ;;
+        (qidC(p){s(0)} :- nilPL) ;;
+        (qidC(q){qidC(a)} :- nilPL) ;;
         (qidC(q){x{0}} :- (qidC(p){qidC(a)})) ;;
         (qidC(q){x{0}} :- (qidC(p){qidC(b)})) .
     
     op exAppend : -> LPProgram .
     eq exAppend =
-        (qidC(append){qidC(nilTerm), x{0}, x{0}} :- nil ) ;;
+        (qidC(append){qidC(nilTerm), x{0}, x{0}} :- nilPL) ;;
         (qidC(append){qidC(cons)[x{s(0)}, x{s(s(0))}], x{s(s(s(0)))}, qidC(cons)[x{s(0)}, x{s(s(s(s(0))))}]} :- (qidC(append){x{s(s(0))}, x{s(s(s(0)))}, x{s(s(s(s(0))))}}) ) .
 
     op exMember : -> LPProgram .
     eq exMember =
-        (qidC(member){x{0} , qidC(cons)[x{0} , x{s(0)}]} :- nil) ;;
+        (qidC(member){x{0} , qidC(cons)[x{0} , x{s(0)}]} :- nilPL) ;;
         (qidC(member){x{s(s(0))} , qidC(cons)[x{s(s(s(0)))} , x{s(s(s(s(0))))}]} :-
             (qidC(noteq){x{s(s(0))} , x{s(s(s(0)))}}) (qidC(member){x{s(s(0))}, x{s(s(s(s(0))))}}) ) ;;
         (qidC(noteq){x{s(s(s(s(s(0)))))}, x{s(s(s(s(s(0)))))}} :- falsePredicate) .
@@ -174,12 +198,12 @@ mod LP-SEMANTICS is
     op exList : -> LPProgram .
     eq exList =
         (qidC(sumlist){x{0}, x{s(0)}} :- qidC(sumlist){x{0}, 0, x{s(0)}}) ;;
-        (qidC(sumlist){qidC(nilTerm) , x{s(s(0))}, x{s(s(0))}} :- nil) ;;
+        (qidC(sumlist){qidC(nilTerm) , x{s(s(0))}, x{s(s(0))}} :- nilPL) ;;
         (qidC(sumlist){qidC(cons)[x{s(s(s(0)))}, x{s(s(s(s(0))))}], x{s(s(s(s(s(0)))))}, x{s(s(s(s(s(s(0))))))}} :- (qidC(is){x{s(s(s(s(s(s(s(0)))))))}, qidC(plus)[x{s(s(s(0)))},x{s(s(s(s(s(0)))))}]}) (qidC(sumlist){x{s(s(s(s(0))))}, x{s(s(s(s(s(s(s(0)))))))}, x{s(s(s(s(s(s(0))))))}})) .
 
     op exMax : -> LPProgram .
     eq exMax =
-        (qidC(max){qidC(nilTerm),x{0},x{0}} :- nil) ;; 
+        (qidC(max){qidC(nilTerm),x{0},x{0}} :- nilPL) ;; 
         (qidC(max){qidC(cons)[x{s(0)}, x{s(s(0))}],x{s(s(s(0)))},x{s(s(s(s(0))))}} :- (qidC(less){x{s(s(s(0)))}, x{s(0)}}) (qidC(max){x{s(s(0))}, x{s(0)}, x{s(s(s(s(0))))}})) ;;
         (qidC(max){qidC(cons)[x{s(0)}, x{s(s(0))}],x{s(s(s(0)))},x{s(s(s(s(0))))}} :- (qidC(less){x{s(0)}, x{s(s(s(0)))}}) (qidC(max){x{s(s(0))}, x{s(s(s(0)))}, x{s(s(s(s(0))))}})) .
 

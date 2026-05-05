@@ -1,7 +1,13 @@
 load unification.maude
+load ext-prelude.maude
 
 fmod PREDICATE is
-  including LP-UNIFICATION .
+  including LP-UNIFICATION * (
+      sort String to LPString,
+      sort Char to LPChar,
+      sort TermList to LPTermList,
+      sort TypeList to LPTypeList
+  ).
   sort Predicate .
   op _{_} : QidC NeTermList -> Predicate [ctor] .
   op falsePredicate : -> Predicate [ctor] .
@@ -14,21 +20,21 @@ fmod CLAUSE is
   sort PredicateList .
   subsort Predicate < PredicateList .
   op trueResult : -> Predicate [ctor] .
-  op nil : -> PredicateList [ctor] .
-  op __ : PredicateList PredicateList -> PredicateList [assoc id: nil] .
+  op nilPL : -> PredicateList [ctor] .
+  op __ : PredicateList PredicateList -> PredicateList [assoc id: nilPL] .
   vars PR PR1 PR2 : Predicate .
   vars PRL PRL1 PRL2 : PredicateList .
   op _in_ : Predicate PredicateList -> Boolean .
-  eq PR in nil = False .
+  eq PR in nilPL = False .
   eq PR1 in (PR1 PRL) = True .
   eq PR1 in (PR2 PRL) = (PR1 in PRL) .
   op _notIn_ : Predicate PredicateList -> Boolean .
-  eq PR notIn nil = True .
+  eq PR notIn nilPL = True .
   eq PR1 notIn (PR1 PRL) = False .
   eq PR1 notIn (PR2 PRL) = (PR1 notIn PRL) .
 
   op equals : Predicate Predicate -> Boolean [comm] .
-  eq equals(PR, nil) = False .
+  eq equals(PR, nilPL) = False .
   eq equals(PR, PR) = True .
   eq equals(PR1, PR2) = False [owise] .
 
@@ -42,35 +48,38 @@ fmod CLAUSE is
   sort Clause .
   op _:-_ : Predicate PredicateList -> Clause [ctor] .
 
-  sort Program .
-  subsort Clause < Program .
-  op mt : -> Program [ctor] .
-  op outOfBounds : -> Program [ctor] .
-  op _;;_ : Program Program -> Program [assoc id: mt] .
+  sort LPProgram .
+  subsort Clause < LPProgram .
+  op mt : -> LPProgram [ctor] .
+  op outOfBounds : -> LPProgram [ctor] .
+  op _;;_ : LPProgram LPProgram -> LPProgram [assoc id: mt] .
   eq (outOfBounds ;; outOfBounds) = outOfBounds .
   vars CL CL1 CL2 : Clause .
-  var PRG : Program .
-  op _in_ : Clause Program -> Boolean .
+  var PRG : LPProgram .
+  op _in_ : Clause LPProgram -> Boolean .
   eq CL in mt = False .
   eq CL1 in (CL1 ;; PRG) = True .
   eq CL1 in (CL2 ;; PRG) = (CL1 in PRG) .
-  op _notIn_ : Clause Program -> Boolean .
+  op _notIn_ : Clause LPProgram -> Boolean .
   eq CL notIn mt = True .
   eq CL1 notIn (CL1 ;; PRG) = False .
   eq CL1 notIn (CL2 ;; PRG) = (CL1 notIn PRG) .
-  op getHeads : Program -> PredicateList .
-  eq getHeads(mt) = nil .
+  op getHeads : LPProgram -> PredicateList .
+  eq getHeads(mt) = nilPL .
   eq getHeads((PR :- PRL)) = PR .
   eq getHeads((PR :- PRL) ;; PRG) = PR (getHeads(PRG)) .
 
-  op samePredicate : Predicate Program -> Boolean .
+  op samePredicate : Predicate LPProgram -> Boolean .
   eq samePredicate(PR, mt) = False .
   eq samePredicate(PR, (PR :- PRL)) = True .
-  eq samePredicate(PR, (CL1 ;; PRG)) = sameF((PR :- nil), CL1) Or samePredicate(PR, PRG) .
+  eq samePredicate(PR, (CL1 ;; PRG)) = sameF((PR :- nilPL), CL1) Or samePredicate(PR, PRG) .
 endfm
 
 fmod LP-SYNTAX is
-  including LP-UNIFICATION .
   protecting PREDICATE .
   protecting CLAUSE .
 endfm
+
+view VarTermView from TRIV to LP-SYNTAX is
+    sort Elt to VarTerm .
+endv

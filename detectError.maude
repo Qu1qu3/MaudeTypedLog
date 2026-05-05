@@ -18,13 +18,13 @@ mod DETECT-ERROR-SIGNATURE is
 
     sorts QueryPair QueryPairList .
     subsort QueryPair < QueryPairList .
-    op qp(_|_) : PredicateList LPProgram -> QueryPair [ctor] .
+    op qp(_|_#_|_) : PredicateList LPProgram LVars TermSubstitution -> QueryPair [ctor] .
     op nqp : -> QueryPair [ctor] .
     op outBoundsQP : -> QueryPair [ctor] .
     op __ : QueryPairList QueryPairList -> QueryPairList [ctor assoc id: nqp] .
 
     op getQueryPair : LPConfiguration -> QueryPair .
-    eq getQueryPair(< N | PL $ SP | LP1 - LP2 >) = qp(PL | LP2) .
+    eq getQueryPair(< N | PL $ SP # VS | LP1 - LP2 >) = qp(PL | LP2 # VS | getTermSub(SP)) .
     eq getQueryPair(mtConf) = nqp .
 
 
@@ -32,6 +32,7 @@ mod DETECT-ERROR-SIGNATURE is
     vars PL Output : PredicateList .
     var PR : Predicate .
     var SP : SubstitutionPair .
+    var VS : LVars .
     vars LP1 LP2 : LPProgram .
     var C : Clause .
 
@@ -69,16 +70,32 @@ mod DETECT-ERROR is
     var T : LPTerm .
     vars N N1 : NatP .
     var SB : SubstitutionPair .
+    var TS : TermSubstitution .
     vars Count Depth : Nat .
     var TQ : TripleQuery .
     var TQL : TripleQueryList .
     vars QP1 QP2 : QueryPair .
     var QPL : QueryPairList .
     var B : Boolean .
+    var VS : LVars .
 
     op hasTypeError : LPProgram -> LPProgram .
     eq hasTypeError(P) =
         detectCLError(
+            tripleQueryList(
+                generateGenericQueries(P),
+                P
+            )) .
+    op getProgramVariables : LPProgram -> LVars .
+    eq getProgramVariables(P) =
+          getVariablesFromQueryPair(
+            tripleQueryList(
+                generateGenericQueries(P),
+                P
+            )) .
+    op getTermSub : LPProgram -> TermSubstitution .
+    eq getTermSub(P) =
+          getTermSubFromQueryPair(
             tripleQueryList(
                 generateGenericQueries(P),
                 P
@@ -89,14 +106,6 @@ mod DETECT-ERROR is
     eq generateGenericQueries(mt) = none .
     eq generateGenericQueries(((PR :- PRL) ;; P))
         = (generateGenericQuery(PR :- PRL) -- generateGenericQueries(P)) .
-
-    --- Avoids adding duplicate genericQueries
-    --- ceq generateGenericQueries(((PR :- PRL) ;; P))
-    ---     = (generateGenericQuery(PR :- PRL) -- generateGenericQueries(P))
-    ---     if samePredicate(PR, P) == False .
-    --- ceq generateGenericQueries(((PR :- PRL) ;; P))
-    ---     = (generateGenericQueries(P))
-    ---     if samePredicate(PR, P) == True .
 
 
 
@@ -117,7 +126,7 @@ mod DETECT-ERROR is
     eq genericParameters((T, NeTL), N) = x{N}, genericParameters(NeTL, s(N)) .
 
 
-    ---take a list of GenericQueries and operate the search of each of them
+    --- Takes a list of GenericQueries and operate the search of each of them
     op tripleQueryList : GenericQueryList LPProgram -> TripleQueryList .
     eq tripleQueryList(GQ1, P)
         = runAllGenericQueries(GQ1, P) .
@@ -133,27 +142,27 @@ mod DETECT-ERROR is
             executeSearch(getQuery(GQ1), P, 0, 30)
         } [owise] .
 
-    op executeSearch : Predicate LPProgram Nat Nat -> QueryPair .
+    op executeSearch : Predicate LPProgram Nat Nat -> [QueryPair] .
     ---if the term is mtConf, there is an error parsing, so there are no more solutions
     ceq executeSearch(PR, P, Count, Depth) =
-        (getQueryPair(
+        getQueryPair(
             downTerm(
                 getTerm(
                     metaSearch(
                         upModule('DETECT-ERROR, false),
                         upTerm(< PR | P >),
-                        ('<_|_$_|_-_>['N1:NatP, 'PL:PredicateList, 'SB:SubstitutionPair, 'P:LPProgram, 'CLi:LPProgram]),
+                        ('<_|_$_#_|_-_>['N1:NatP, 'PL:PredicateList, 'SB:SubstitutionPair, 'VS:LVars, 'P:LPProgram, 'CLi:LPProgram]),
                         nil,
                         '!,
                         Depth,
                         --- unbounded,
                         Count)),
                 (mtConf).LPConfiguration)
-        )) if (downTerm(getTerm(
+        ) if (downTerm(getTerm(
                     metaSearch(
                         upModule('DETECT-ERROR, false),
                         upTerm(< PR | P >),
-                        ('<_|_$_|_-_>['N1:NatP, 'PL:PredicateList, 'SB:SubstitutionPair, 'P:LPProgram, 'CLi:LPProgram]),
+                        ('<_|_$_#_|_-_>['N1:NatP, 'PL:PredicateList, 'SB:SubstitutionPair, 'VS:LVars, 'P:LPProgram, 'CLi:LPProgram]),
                         nil,
                         '!,
                         Depth,
@@ -162,23 +171,23 @@ mod DETECT-ERROR is
                 ), (mtConf).LPConfiguration)
                     == ((mtConf).LPConfiguration)) .
     eq executeSearch(PR, P, Count, 0) =
-        qp(timeExceedPredicate | mt) .
+        qp(timeExceedPredicate | mt # nilVars | noneT) .
 
     eq executeSearch(PR, P, Count, Depth) =
-        (getQueryPair(
+        getQueryPair(
             downTerm(
                 getTerm(
                     metaSearch(
                         upModule('DETECT-ERROR, false),
                         upTerm(< PR | P >),
-                        ('<_|_$_|_-_>['N1:NatP, 'PL:PredicateList, 'SB:SubstitutionPair, 'P:LPProgram, 'CLi:LPProgram]),
+                        ('<_|_$_#_|_-_>['N1:NatP, 'PL:PredicateList, 'SB:SubstitutionPair, 'VS:LVars, 'P:LPProgram, 'CLi:LPProgram]),
                         nil,
                         '!,
                         Depth,
                         --- unbounded,
                         Count)),
                 (mtConf).LPConfiguration)
-        ))
+        )
         executeSearch(PR, P, (Count + 1), sd(Depth, 1))
         [owise] .
 
@@ -190,16 +199,41 @@ mod DETECT-ERROR is
 
     op clauseError : TripleQuery -> LPProgram .
     eq clauseError({GQ(CL, PR1), nqp}) = CL [print "\nEmpty case"] .
-    eq clauseError({GQ(CL, PR1), (QPL (qp(timeExceedPredicate | P)))}) = outOfBounds [print "outBounds: " QPL].
-    ceq clauseError({GQ(CL, PR1), (qp(PRL | P) QPL)}) =
+    eq clauseError({GQ(CL, PR1), (QPL (qp(timeExceedPredicate | P # VS | TS)))}) = outOfBounds [print "outBounds: " QPL] .
+    ceq clauseError({GQ(CL, PR1), (qp(PRL | P # VS | TS) QPL)}) =
             (clauseError({GQ(CL, PR1), QPL}))
         if (
             (((CL in P) And (wrongPredicate in PRL)) Or (CL notIn P)) == True
         ) [print "\nGeneric case\nCL: " CL "\nPRL(output): " PRL "\nP(path): " P ] .
-    ceq clauseError({GQ(CL, PR1), (qp(PRL | P) QPL)}) =
+    ceq clauseError({GQ(CL, PR1), (qp(PRL | P # VS | TS) QPL)}) =
             mt
         if (
             (((CL in P) And (wrongPredicate in PRL)) Or (CL notIn P)) == False
         ) [print "\nGeneric case\nCL: " CL "\nPRL(output): " PRL "\nP(path): " P ] .
+
+
+    op getVariablesFromQueryPair : TripleQueryList -> LVars .
+    eq getVariablesFromQueryPair(nonetql) = nilVars [print "getVariablesFromQueryPair: nonetql"] .
+    eq getVariablesFromQueryPair(TQ TQL) = getFromSingleQueryList(TQ) getVariablesFromQueryPair(TQL) [print "getVariablesFromQueryPair: getFromSingleQueryList"] .
+
+    op getFromSingleQueryList : TripleQuery -> LVars .
+    eq getFromSingleQueryList({GQ(CL, PR1), nqp}) = nilVars [print "getFromSingleQueryList: empty case"] .
+    eq getFromSingleQueryList({GQ(CL, PR1), (QPL (qp(timeExceedPredicate | P # VS | TS)))}) = nilVars [print "getFromSingleQueryList: outBounds case"] .
+    eq getFromSingleQueryList({GQ(CL, PR1), (qp(PRL | P # VS | TS) QPL)}) =
+            VS (getFromSingleQueryList({GQ(CL, PR1), QPL}))
+        [print "\nGeneric case\nCL: " CL "\nPRL(output): " PRL "\nP(path): " P ] .
+
+
+    op getTermSubFromQueryPair : TripleQueryList -> TermSubstitution .
+    eq getTermSubFromQueryPair(nonetql) = noneT [print "getVariablesFromQueryPair: nonetql"] .
+    eq getTermSubFromQueryPair(TQ TQL) = getTSubFromSingleQueryList(TQ) ; getTermSubFromQueryPair(TQL) [print "getVariablesFromQueryPair: getFromSingleQueryList"] .
+
+    op getTSubFromSingleQueryList : TripleQuery -> TermSubstitution .
+    eq getTSubFromSingleQueryList({GQ(CL, PR1), nqp}) = noneT [print "getTSubFromSingleQueryList: empty case"] .
+    eq getTSubFromSingleQueryList({GQ(CL, PR1), (QPL (qp(timeExceedPredicate | P # VS | TS)))}) = noneT [print "getTSubFromSingleQueryList: outBounds case"] .
+    eq getTSubFromSingleQueryList({GQ(CL, PR1), (qp(PRL | P # VS | TS) QPL)}) =
+            TS ; getTSubFromSingleQueryList({GQ(CL, PR1), QPL})
+        [print "\nGeneric case\nCL: " CL "\nPRL(output): " PRL "\nP(path): " P ] .
+
 
 endm

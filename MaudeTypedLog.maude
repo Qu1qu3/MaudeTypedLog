@@ -14,7 +14,7 @@ mod MTL-STRAT is
     var PR : LPProgram .
     vars P P1 P2 : Predicate .
 
-    --- Checks appending
+    --- Checks combining to avoid duplicate predicates
     op removeDuplicatesProgram : LPProgram -> LPProgram .
     eq removeDuplicatesProgram(mt) = mt .
     eq removeDuplicatesProgram((CL ;; PR)) =
@@ -98,13 +98,14 @@ mod MTL-GRAMMAR is
 
     op list programs : -> Action .
     op load program_ : Nat -> Action .
-    op append program_ : Nat -> Action .
+    op reload program_ : Nat -> Action .
+    --- op add clause_ : ClauseInput -> Action .
     op check : -> Action .
     --- op check predicate_ : PredicateInput -> Action .
-    op show predicates : -> Action .
-    op show program : -> Action .
-    op help : -> Action .
     op query_ : PredicateInput -> Action .
+    op show program : -> Action .
+    op show predicates : -> Action .
+    op help : -> Action .
 
 
     ***Auxiliary grammar for queries
@@ -329,9 +330,9 @@ omod MTL-IO is
     eq printProgramClause(PRD :- PRL) = predicateToString(PRD) + " :- " + printPredicateList(PRL) + "." .
 
     op printPredicateList : PredicateList -> String .
-    eq printPredicateList(nil) = "" .
+    eq printPredicateList(nilPL) = "" .
     ceq printPredicateList((PRD PRL)) = predicateToString(PRD) + ", " + printPredicateList(PRL)
-        if PRL =/= nil .
+        if PRL =/= nilPL .
     eq printPredicateList((PRD)) = predicateToString(PRD) .
 
 
@@ -369,10 +370,10 @@ omod MTL-IO is
     eq printHelp = "Available commands:\n"
         + GREEN + "\tPROGRAM FUNCTIONS\n"
         + CYAN + "\tlist programs       " + WHITE + "- Lists all the predefined programs.\n"
-        + CYAN + "\tload program <N>    " + WHITE + "- Loads preloaded program N (1-8). Overwrites any preloaded program.\n"
-        + CYAN + "\tappend program <N>    " + WHITE + "- Appends a preloaded program N (1-8).\n"
+        + CYAN + "\treload program <N>    " + WHITE + "- Loads preloaded program N (1-8). Overwrites any preloaded program.\n"
+        + CYAN + "\tload program <N>    " + WHITE + "- Appends a preloaded program N (1-8) with the current loaded program.\n"
         + CYAN + "\tcheck               " + WHITE + "- Types check the current loaded program.\n"
-        + CYAN + "\tquery               " + WHITE + "- Executes a query in the loaded program.\n"
+        + CYAN + "\tquery               " + WHITE + "- Executes a query in the loaded program. Returns true (with substitution), false or type error.\n"
         + GREEN + "\n\tSHOW FUNCTIONS\n"
         + CYAN + "\tshow program        " + WHITE + "- Shows the current loaded program.\n"
         + CYAN + "\tshow predicates     " + WHITE + "- Shows the predicates used in the clauses of the current program.\n"
@@ -392,13 +393,13 @@ omod MTL-IO is
     => < O : VM | action : idle, program : P >
     write(stdout, O, printListPrograms + "\n") .
 
-    rl < O : VM | action : append program N, program : P >
-    => < O : VM | action : idle, program : removeDuplicatesProgram(P ;; takeProgram(N)) >
-    write(stdout, O, "Added program " + string(N, 10) + " to memory\n") .
-
     rl < O : VM | action : load program N, program : P >
+    => < O : VM | action : idle, program : removeDuplicatesProgram(P ;; takeProgram(N)) >
+    write(stdout, O, "Program " + string(N, 10) + "added to memory\n") .
+
+    rl < O : VM | action : reload program N, program : P >
     => < O : VM | action : idle, program : takeProgram(N) >
-    write(stdout, O, "Loaded program " + string(N, 10) + " to memory\n") .
+    write(stdout, O, "Program " + string(N, 10) + " loaded to memory\n") .
 
 
     rl < O : VM | action : check, program : P >
@@ -421,6 +422,9 @@ omod MTL-IO is
     var SB : SubstitutionPair .
     vars PR CLi : LPProgram .
     var PREDICATESTRING : String .
+    vars VS VS1 VS2 : LVars .
+    var TS : TermSubstitution .
+    var VT : VarTerm .
 
     rl < O : VM | action : show predicates, program : P >
     => < O : VM | action : idle, program : P >
@@ -431,40 +435,63 @@ omod MTL-IO is
 
 
 
+    --- if true -> show all solutions with substitutions
     rl < O : VM | action : (query PI), program : P > ---, query : PL1  >
+    --- crl < O : VM | action : (query PI), program : P > ---, query : PL1  >
     => < O : VM | action : idle, program : P > ---, query : PI >
     write(stdout, O, "Executing query:\n"
         + "---------------------\n"
         + printSearch(executeSearch(transformPredicate(PI), P, 0, 30))
         ) .
+    --- if executeSearch(transformPredicate(PI), P, 0, 30) :: QueryPair .
+
+--- predicado no definido en ninguna cláusula...
+--- predicado no tiene instancias en el programa...
+    --- crl < O : VM | action : (query PI), program : P > ---, query : PL1  >
+    --- => < O : VM | action : idle, program : P > ---, query : PI >
+    --- write(stdout, O, "Executing query:\n"
+    ---     + "---------------------\n"
+    ---     + "ERROR MORTAL HA FALLADO TODO\n"
+    ---     )
+    --- if not (executeSearch(transformPredicate(PI), P, 0, 30) :: QueryPair) .
 
     var QPL : QueryPairList .
 
     op printSearch : QueryPairList -> String .
     eq printSearch(nqp) = "\nNo more solutions found.\n" .
-    eq printSearch(qp(nil | P) QPL) =
-        "True" + "\n" .
+    eq printSearch(qp(nilPL | P # VS | TS) QPL) =
+        "True" + "\n" +
+        printSubstitution(VS, TS).
     eq printSearch(QPL) = outputProcessing(
         getPredicateList(QPL), wrongPredicate
     ) .
 
+    op printSubstitution : LVars TermSubstitution -> String .
+    --- if no variables, then no text to be returned
+    eq printSubstitution(nilVars, TS) = "" .
+    eq printSubstitution(VS, TS) = "Substitution:\n" + printSubList(subsimple(TS, VS)) .
+
+    op printSubList : TermSubstitution -> String .
+    eq printSubList(noneT) = "No substitutions\n" .
+    eq printSubList((VT <- T)) = printNeTL(VT) + " <- " + printNeTL(T) + "\n" .
+    eq printSubList((VT <- T) ; TS) = printNeTL(VT) + " <- " + printNeTL(T) + "\n" + printSubList(TS) .
 
     op getPredicateList : QueryPairList -> PredicateList .
-    eq getPredicateList(nqp) = nil .
-    eq getPredicateList(qp(nil | P) QPL) = trueResult [print "nil"] .
-    eq getPredicateList(qp(PRD | P)) = PRD [print "last: " PRD] .
-    eq getPredicateList(qp(PRD PRL | P) QPL) = PRD getPredicateList(QPL) [print "not last: " PRD] .
+    eq getPredicateList(nqp) = nilPL .
+    eq getPredicateList(qp(nilPL | P # VS | TS) QPL) = trueResult [print "nil"] .
+    eq getPredicateList(qp(PRD | P # VS | TS) QPL) = PRD [print "last: " PRD] .
+    eq getPredicateList(qp(PRD PRL | P # VS | TS) QPL) = PRD getPredicateList(QPL) [print "not last: " PRD] .
 
     op outputProcessing : PredicateList Predicate -> String .
     eq outputProcessing(trueResult PRL, PRD) = "True.\n" . ---if there is true, result is true
     --- False output, if it reaches the last with false
-    eq outputProcessing(nil, falsePredicate) = "No solutions.\n" .
+    eq outputProcessing(nilPL, falsePredicate) = "No solutions.\n" .
     eq outputProcessing(falsePredicate, falsePredicate) = "No solutions.\n" .
     eq outputProcessing(falsePredicate, wrongPredicate) = "No solutions.\n" .
     eq outputProcessing(falsePredicate PRL, falsePredicate) = outputProcessing(PRL, falsePredicate) .
     eq outputProcessing(falsePredicate PRL, wrongPredicate) = outputProcessing(PRL, falsePredicate) .
     --- Wrong output, if it reaches the last with wrong
-    eq outputProcessing(nil, wrongPredicate) = "Type error in this query\n" .
+    eq outputProcessing(nilPL, wrongPredicate) = "Type error in this query\n" .
     eq outputProcessing(wrongPredicate, wrongPredicate) = "Type error in this query\n" .
     eq outputProcessing(wrongPredicate PRL, wrongPredicate) = outputProcessing(PRL, wrongPredicate) .
     eq outputProcessing(wrongPredicate PRL, falsePredicate) = outputProcessing(PRL, falsePredicate) .
