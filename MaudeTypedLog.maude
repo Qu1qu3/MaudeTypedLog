@@ -99,9 +99,14 @@ mod MTL-GRAMMAR is
     op list programs : -> Action .
     op load program_ : Nat -> Action .
     op reload program_ : Nat -> Action .
-    --- op add clause_ : ClauseInput -> Action .
+    op clear mem : -> Action .
     op check : -> Action .
     --- op check predicate_ : PredicateInput -> Action .
+    op load-file_ : String -> Action .
+    op read file openFile : -> Action .
+    op read file readLine : -> Action .
+    op read file processingLine : -> Action .
+    op read file endFile : -> Action .
     op query_ : PredicateInput -> Action .
     op show program : -> Action .
     op show predicates : -> Action .
@@ -109,11 +114,11 @@ mod MTL-GRAMMAR is
 
 
     ***Auxiliary grammar for queries
-    sorts VarTermInput ListInput PredicateInput PredicateListInput .
+    sorts VarTermInput ListInput PredicateInput PredicateListInput ClauseInput .
     subsorts LPChar VarTermInput ListInput PredicateInput < PredicateListInput .
     op nilInput : -> PredicateListInput [ctor] .
     op parseError : -> PredicateInput [ctor] .
-    op _,_ : PredicateListInput PredicateListInput -> PredicateListInput [assoc id: nilInput] .
+    op _,_ : PredicateListInput PredicateListInput -> PredicateListInput [assoc id: nilInput prec 42 gather (e E)] .
 
     op [] : -> ListInput [ctor] .
     op [_|_] : VarTermInput ListInput -> ListInput [ctor] .
@@ -128,16 +133,18 @@ mod MTL-GRAMMAR is
     op _(_) : LPChar ListInput -> PredicateInput [ctor] .
     op _(_) : LPChar PredicateListInput -> PredicateInput [ctor] .
 
+    op emptyClauseInput : -> ClauseInput [ctor] .
+    op _:-_ : PredicateInput PredicateListInput -> ClauseInput [ctor prec 45] .
 
-    op _,_ : Nat Nat -> PredicateListInput [ctor] .
-    op _,_ : Nat PredicateListInput -> PredicateListInput [ctor] .
+    op _,_ : Nat Nat -> PredicateListInput .
+    op _,_ : Nat PredicateListInput -> PredicateListInput .
 
-    op _,_ : Nat LPChar -> PredicateListInput [ctor] .
-    op _,_ : Nat VarTermInput -> PredicateListInput [ctor] .
-    op _,_ : Nat ListInput -> PredicateListInput [ctor] .
-    op _,_ : LPChar Nat -> PredicateListInput [ctor] .
-    op _,_ : VarTermInput Nat -> PredicateListInput [ctor] .
-    op _,_ : ListInput Nat -> PredicateListInput [ctor] .
+    op _,_ : LPChar Nat -> PredicateListInput .
+    op _,_ : Nat LPChar -> PredicateListInput .
+    op _,_ : VarTermInput Nat -> PredicateListInput .
+    op _,_ : Nat VarTermInput -> PredicateListInput .
+    op _,_ : ListInput Nat -> PredicateListInput .
+    op _,_ : Nat ListInput -> PredicateListInput .
 
     vars CId C1 C2 : LPChar .
     vars N M : Nat .
@@ -146,6 +153,24 @@ mod MTL-GRAMMAR is
 
     var PI : PredicateInput .
     vars H PLI PLI2 : PredicateListInput .
+
+    --- parsing to append new program clauses to the current program
+    op getClause : ClauseInput -> Clause .
+    eq getClause(PI :- PLI) = transformPredicate(PI) :- transformToPredicateList(PLI) .
+    eq getClause(emptyClauseInput) = mt .
+
+    op transformToPredicateList : PredicateListInput -> PredicateList .
+    eq transformToPredicateList(nilInput) = nilPL .
+
+    eq transformToPredicateList(CId(C1)) = qidC(CId){qidC(C1)} .
+    eq transformToPredicateList(CId(N)) = qidC(CId){natToNatP(N)} .
+    eq transformToPredicateList(CId(X(N))) = qidC(CId){x{natToNatP(N)}} .
+    eq transformToPredicateList(CId(PLI)) = qidC(CId){transformList(PLI)} .
+
+    eq transformToPredicateList((C1(PLI2)), PLI) = (qidC(C1){transformList(PLI2)}) transformToPredicateList(PLI) .
+    eq transformToPredicateList((C1(PI)), PLI) = (qidC(C1){transformList(PI)}) transformToPredicateList(PLI) .
+    eq transformToPredicateList((C1(N)), PLI) = (qidC(C1){natToNatP(N)}) transformToPredicateList(PLI) .
+
 
     --- input predicate list (Prolog) to our syntax
     op transformPredicate : PredicateInput -> Predicate .
@@ -203,7 +228,14 @@ mod MTL-GRAMMAR is
 
 endm
 
-
+fmod MAYBE{X :: TRIV} is
+    sort Maybe{X} .
+    subsort X$Elt < Maybe{X} .
+    op maybe{X} : -> Maybe{X} [ctor] .
+endfm
+view Oid from TRIV to CONFIGURATION is
+    sort Elt to Oid .
+endv
 
 omod MTL-IO is
     including MTL-GRAMMAR .
@@ -212,8 +244,15 @@ omod MTL-IO is
     protecting MTL-STRAT .
     protecting CONVERSION .
     protecting LEXICAL .
+    inc FILE .
+    pr MAYBE{Oid} * (op maybe{Oid} to null) .
 
-    class VM | action : Action, program : LPProgram . ---, query : PredicateList .
+    op inFile:_ : String -> Attribute .
+    var Text : String .
+    vars FHIn : Oid .
+
+    class VM | action : Action, program : LPProgram,
+        in : Maybe{Oid}, inFile : String .
 
     op idle : -> Action .
     ops vm clausule : -> Oid .
@@ -222,12 +261,13 @@ omod MTL-IO is
     op interpret : -> Configuration .
     eq interpret
         = <>
-        < vm : VM | program : mt, action : idle > ---, query : nil >
+        < vm : VM | program : mt, action : idle,
+            in : null, inFile : "" >
         write(stdout, vm,
-            "\n   =====================================" + YELLOW +
-            "\n               Maude" + RED + "Typed" + GREEN + "Log - v1" +
-            "\n            A Maude based Typed" +
-            "\n          Unification Interpreter" + BW +
+                   "\n   =====================================" + BLUE +
+                   "\n               MaudeTypedLog - v1" +
+            RED  + "\n            A Maude based Typed" +
+            BLUE + "\n          Unification Interpreter" + BW +
             "\n   ====================================" + WHITE +
             "\n\n\n" + BW
         ) .
@@ -237,12 +277,12 @@ omod MTL-IO is
 
 
     rl  < O : VM | >
-        wrote(O, O')
+        wrote(O, stdout)
         => < O : VM | >
         getLine(stdin, O, "MaudeTypedLog> ") .
 
     rl  < O : VM | action : idle >
-        gotLine(O, O', Str)
+        gotLine(O, stdin, Str)
         =>
         if tokenize(Str) == 'quit
         then
@@ -261,14 +301,15 @@ omod MTL-IO is
     var NP : NatP .
     var P : LPProgram .
     var CL : Clause .
-    var CLH : String .
+    vars CLH INFILE : String .
     vars NeTL NeTL1 NeTL2 NeTL3 : LPNeTermList .
     var TL : LPTermList .
     var T : LPTerm .
     var PRD : Predicate .
     var PRL : PredicateList .
     vars Q1 Q2 : QidC .
-    var Id : LPString .
+    vars Id FILE : LPString .
+    var CLI : ClauseInput .
 
 
     op printPredicateMain : LPProgram -> String .
@@ -370,13 +411,16 @@ omod MTL-IO is
     eq printHelp = "Available commands:\n"
         + GREEN + "\tPROGRAM FUNCTIONS\n"
         + CYAN + "\tlist programs       " + WHITE + "- Lists all the predefined programs.\n"
-        + CYAN + "\treload program <N>    " + WHITE + "- Loads preloaded program N (1-8). Overwrites any preloaded program.\n"
+        + CYAN + "\treload program <N>  " + WHITE + "- Loads preloaded program N (1-8). Overwrites any preloaded program.\n"
         + CYAN + "\tload program <N>    " + WHITE + "- Appends a preloaded program N (1-8) with the current loaded program.\n"
-        + CYAN + "\tcheck               " + WHITE + "- Types check the current loaded program.\n"
+        + CYAN + "\tclear mem           " + WHITE + "- Clears the program memory.\n"
+        + CYAN + "\tcheck               " + WHITE + "- Type checks the loaded program.\n"
         + CYAN + "\tquery               " + WHITE + "- Executes a query in the loaded program. Returns true (with substitution), false or type error.\n"
+        + CYAN + "\tload-file <file>    " + WHITE + "- Loads the program file.\n"
         + GREEN + "\n\tSHOW FUNCTIONS\n"
         + CYAN + "\tshow program        " + WHITE + "- Shows the current loaded program.\n"
         + CYAN + "\tshow predicates     " + WHITE + "- Shows the predicates used in the clauses of the current program.\n"
+        + GREEN + "\n\tSYSTEM FUNCTIONS\n"
         + CYAN + "\tquit                " + WHITE + "- Ends the execution of the tool.\n"
         + BW .
 
@@ -395,11 +439,59 @@ omod MTL-IO is
 
     rl < O : VM | action : load program N, program : P >
     => < O : VM | action : idle, program : removeDuplicatesProgram(P ;; takeProgram(N)) >
-    write(stdout, O, "Program " + string(N, 10) + "added to memory\n") .
+    write(stdout, O, "Program " + string(N, 10) + " added to memory\n") .
 
     rl < O : VM | action : reload program N, program : P >
     => < O : VM | action : idle, program : takeProgram(N) >
-    write(stdout, O, "Program " + string(N, 10) + " loaded to memory\n") .
+    write(stdout, O, "Program " + string(N, 10) + " added to memory\n") .
+
+    rl < O : VM | action : clear mem, program : P >
+    => < O : VM | action : idle, program : mt >
+    write(stdout, O, "Memory cleared\n") .
+
+
+    --- open file
+    rl < O : VM | action : load-file FILE, program : P, in : null, inFile : INFILE >
+    =>
+        < O : VM | action : read file openFile, program : P, in : null, inFile : FILE >
+        openFile(fileManager, O, FILE, "r") .
+
+    --- get line from file
+    rl < O : VM | action : read file openFile, program : P, in : null, inFile : INFILE >
+        openedFile(O, fileManager, FHIn)
+        =>
+        < O : VM | action : read file readLine, program : P, in : FHIn, inFile : INFILE >
+        getLine(FHIn, O) .
+
+    --- read line and write on copy file
+    rl < O : VM | action : read file readLine, program : P, in : FHIn, inFile : INFILE >
+        gotLine(O, FHIn, Text)
+    =>
+        if Text == ""
+        then
+            < O : VM | action : read file endFile, program : P, in : FHIn, inFile : INFILE >
+            closeFile(FHIn, O)
+            --- show program
+            write(stdout, O, "Program loaded from file:\n"
+                           + "-------------------------\n"
+                           + printProgramMain(P))
+        else
+            < O : VM | action : read file processingLine, program : P ;; getClause(downTerm(getTerm(metaParse(VM-GRAMMAR, tokenize(substr(Text, 0, (( - 1) + find(Text, ".", 0)))), 'ClauseInput)), (emptyClauseInput).ClauseInput)), in : FHIn, inFile : INFILE >
+        fi .
+
+    --- keep reading file
+    rl < O : VM | action : read file processingLine, program : P, in : FHIn, inFile : INFILE >
+    =>
+        --- come back to read line and write on copy file (read file 3)
+        < O : VM | action : read file readLine, program : P, in : FHIn, inFile : INFILE >
+        getLine(FHIn, O) .
+
+    --- close files and end
+    rl < O : VM | action : read file endFile, program : P, in : FHIn, inFile : INFILE >
+        closedFile(O, FHIn)
+    =>
+        < O : VM | action : idle, program : P, in : null, inFile : "" >
+        write(stdout, O, "File copied") .
 
 
     rl < O : VM | action : check, program : P >
@@ -445,8 +537,8 @@ omod MTL-IO is
         ) .
     --- if executeSearch(transformPredicate(PI), P, 0, 30) :: QueryPair .
 
---- predicado no definido en ninguna cláusula...
---- predicado no tiene instancias en el programa...
+    --- predicado no definido en ninguna cláusula...
+    --- predicado no tiene instancias en el programa...
     --- crl < O : VM | action : (query PI), program : P > ---, query : PL1  >
     --- => < O : VM | action : idle, program : P > ---, query : PI >
     --- write(stdout, O, "Executing query:\n"
@@ -501,11 +593,6 @@ omod MTL-IO is
 endom
 
 erewrite in MTL-IO : interpret .
-
---- Programs ex1 and ex2
---- red (checkAppend(ex1 ;; ex2) == ((qidC(p){0} :- nil) ;; (qidC(q){s(0)} :- nil) ;; (qidC(
----     r){x{0}} :- (qidC(p){x{0}}) qidC(q){x{0}}) ;; (qidC(p){s(0)} :- nil) ;;
----a     (qidC(q){qidC(a)} :- nil) ;; qidC(q){x{0}} :- qidC(p){qidC(a)})) .
 
 
 quit
